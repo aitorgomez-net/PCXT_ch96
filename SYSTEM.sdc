@@ -1,0 +1,298 @@
+derive_pll_clocks
+derive_clock_uncertainty
+
+# core specific constraints
+# Clocks - PLL principal (Chipset/SDRAM domain)
+set CLOCK_CORE      {emu|pll|pll_inst|altera_pll_i|cyclonev_pll|counter[0].output_counter|divclk}
+set CLOCK_CHIP      {emu|pll|pll_inst|altera_pll_i|cyclonev_pll|counter[1].output_counter|divclk}
+# Clocks - PLL video (CPU/Video domain - precise frequencies)
+set CLOCK_VGA_CGA   {emu|pll_system_inst|pll_system_inst|altera_pll_i|general[0].gpll~PLL_OUTPUT_COUNTER|divclk}
+set CLOCK_VGA_MDA   {emu|pll_system_inst|pll_system_inst|altera_pll_i|general[1].gpll~PLL_OUTPUT_COUNTER|divclk}
+set CLOCK_VIDEO_MDA {emu|pll_system_inst|pll_system_inst|altera_pll_i|general[2].gpll~PLL_OUTPUT_COUNTER|divclk}
+set CLOCK_VIDEO_OUT_PS {emu|pll_system_inst|pll_system_inst|altera_pll_i|general[3].gpll~PLL_OUTPUT_COUNTER|divclk}
+set CLOCK_HDMI      {pll_hdmi|pll_hdmi_inst|altera_pll_i|cyclonev_pll|counter[0].output_counter|divclk}
+set CLOCK_H2F       {sysmem|fpga_interfaces|clocks_resets|h2f_user0_clk}
+# Derived clocks (from PLL video domain)
+set CLOCK_14_318    {emu:emu|clk_14_318|q}
+
+# clk_14_318 derives from clk_28_636 (PLL video - precise frequency)
+create_generated_clock -name clk_14_318 -source [get_pins $CLOCK_VGA_CGA] -divide_by 2 [get_pins $CLOCK_14_318]
+# SDRAM. The controller has its own clock, which also
+# serves as the HGC pixel clock: 114.545 MHz (general[2]). The chip's clock
+# leaves through a DDIO register (emu|sdram_clk_ddr): a separate PLL output
+# (general[4]) half a period after the controller clock.
+set ega_card 0
+foreach_in_collection a [get_all_global_assignments -name VERILOG_MACRO] {
+    if {[lindex $a 2] eq "ENABLE_EGA=1"} { set ega_card 1 }
+}
+set SDRAM_DDIO [get_pins -compatibility_mode {*sdram_clk_ddr|*|muxsel}]
+set CLOCK_SDRAM $CLOCK_VIDEO_MDA
+create_generated_clock -name SDRAM_CLK -source $SDRAM_DDIO [get_ports { SDRAM_CLK }]
+create_clock -name VCLK_SDIO -period 20.000
+set SDIO_SPI_REG {emu:emu|CHIPSET:u_CHIPSET|PERIPHERALS:u_PERIPHERALS|KFMMC_DRIVE_IDE:u_KFMMC_DRIVE_IDE|KFMMC_SPI:u_KFMMC_SPI|spi_clk}
+create_generated_clock -name SDIO_SPI_CLK -source [get_pins ${SDIO_SPI_REG}|clk] -divide_by 2 [get_pins ${SDIO_SPI_REG}|q]
+
+# SPLASH
+set_false_path -to [get_registers {emu:emu|splash_off}]
+
+# Configuration latched at reset on the falling chipset edge: the machine model,
+# the PCjr RAM size, the Hercules flag and the video card. They are written only
+# while reset is asserted and the CPU is held, and never change while the
+# machine runs, but the analyser sees them as half-cycle launches into the
+# memory map and CPU port (hundreds of paths, the worst of the full profile).
+set_false_path -from [get_registers {emu:emu|tandy_applied_r                                      emu:emu|pcjr_applied_r                                      emu:emu|pcjr_ram_size_r[*]                                      emu:emu|hgc_mode                                      emu:emu|ega_active_r*}]
+
+# CDC: PLL principal (Chipset) <-> PLL video (CPU/Video) - asynchronous clock domains
+set_false_path -from [get_clocks $CLOCK_CHIP] -to [get_clocks $CLOCK_VGA_CGA]
+set_false_path -from [get_clocks $CLOCK_VGA_CGA] -to [get_clocks $CLOCK_CHIP]
+set_false_path -from [get_clocks $CLOCK_CHIP] -to [get_clocks $CLOCK_VGA_MDA]
+set_false_path -from [get_clocks $CLOCK_VGA_MDA] -to [get_clocks $CLOCK_CHIP]
+set_false_path -from [get_clocks $CLOCK_CHIP] -to [get_clocks $CLOCK_VIDEO_MDA]
+set_false_path -from [get_clocks $CLOCK_VIDEO_MDA] -to [get_clocks $CLOCK_CHIP]
+set_false_path -from [get_clocks $CLOCK_CHIP] -to [get_clocks $CLOCK_VIDEO_OUT_PS]
+set_false_path -from [get_clocks $CLOCK_VIDEO_OUT_PS] -to [get_clocks $CLOCK_CHIP]
+set_false_path -from [get_clocks $CLOCK_CHIP] -to [get_clocks clk_14_318]
+set_false_path -from [get_clocks clk_14_318] -to [get_clocks $CLOCK_CHIP]
+
+set_false_path -from [get_clocks $CLOCK_CORE] -to [get_clocks $CLOCK_VGA_CGA]
+set_false_path -from [get_clocks $CLOCK_VGA_CGA] -to [get_clocks $CLOCK_CORE]
+set_false_path -from [get_clocks $CLOCK_CORE] -to [get_clocks $CLOCK_VGA_MDA]
+set_false_path -from [get_clocks $CLOCK_VGA_MDA] -to [get_clocks $CLOCK_CORE]
+set_false_path -from [get_clocks $CLOCK_CORE] -to [get_clocks $CLOCK_VIDEO_MDA]
+set_false_path -from [get_clocks $CLOCK_VIDEO_MDA] -to [get_clocks $CLOCK_CORE]
+set_false_path -from [get_clocks $CLOCK_CORE] -to [get_clocks $CLOCK_VIDEO_OUT_PS]
+set_false_path -from [get_clocks $CLOCK_VIDEO_OUT_PS] -to [get_clocks $CLOCK_CORE]
+set_false_path -from [get_clocks $CLOCK_CORE] -to [get_clocks clk_14_318]
+set_false_path -from [get_clocks clk_14_318] -to [get_clocks $CLOCK_CORE]
+
+# HDMI_TX switches at run time between the scaler clock and direct video.
+# These are independent clock sources feeding an exclusive clock mux.
+set_false_path -from [get_clocks $CLOCK_HDMI] -to [get_clocks $CLOCK_VIDEO_OUT_PS]
+set_false_path -from [get_clocks $CLOCK_VIDEO_OUT_PS] -to [get_clocks $CLOCK_HDMI]
+
+# In analog-video mode the SDIO pins carry video generated by one of these
+# clocks, so the virtual SDIO receiver clock does not apply to those paths.
+set_false_path -from [get_clocks $CLOCK_VIDEO_OUT_PS] -to [get_clocks VCLK_SDIO]
+set_false_path -from [get_clocks $CLOCK_HDMI] -to [get_clocks VCLK_SDIO]
+set_false_path -from [get_clocks $CLOCK_VIDEO_OUT_PS] -to [get_clocks SDIO_SPI_CLK]
+set_false_path -from [get_clocks $CLOCK_HDMI] -to [get_clocks SDIO_SPI_CLK]
+
+# Explicit retime constraints for the final HDMI output stage.
+set_max_delay -from [get_clocks $CLOCK_VGA_CGA]   -to [get_clocks $CLOCK_VIDEO_OUT_PS] 17.500
+set_max_delay -from [get_clocks $CLOCK_VIDEO_MDA] -to [get_clocks $CLOCK_VIDEO_OUT_PS] 17.500
+
+# VIDEO
+# NOTE: If the system clock and video clock are synchronous, the following description is not necessary.
+set VIDEO_TO_SYSYEM_DELAY 10
+
+# The final video clock and the HPS clock are unrelated. Every crossing between
+# them is synchronised in the framework: video_calc samples DE/HS/VS through
+# its own registers and ascal hands over its write pointers with a toggle
+# handshake. A max_delay bound cannot be met here because it does not cancel
+# the PLL phase offset and clock-tree insertion of CLOCK_VIDEO_OUT_PS, so treat
+# the two domains as asynchronous, as sys_top.sdc already does for the core
+# PLL and the HDMI PLL.
+set_clock_groups -asynchronous \
+    -group [get_clocks $CLOCK_VIDEO_OUT_PS] \
+    -group [get_clocks $CLOCK_H2F]
+
+# Explicit frame-marker and reset-release synchronizers.
+set_false_path -from [get_registers {pll_hdmi_adj:pll_hdmi_adj|i_vss_delay}] \
+              -to   [get_registers {pll_hdmi_adj:pll_hdmi_adj|ivss}]
+set_false_path -to [get_registers {emu:emu|video_retime_reset_sync[*] \
+                                    emu:emu|video_retime_57_sync[*]}]
+set_false_path -to [get_registers {emu:emu|CHIPSET:u_CHIPSET|PERIPHERALS:u_PERIPHERALS|video_reset_cga_sync[*] \
+                                   emu:emu|CHIPSET:u_CHIPSET|PERIPHERALS:u_PERIPHERALS|video_reset_hgc_sync[*]}]
+# Video card selected at reset (ENABLE_EGA builds). ega_active is applied on the
+# chipset clock and only read through these level synchronisers; it never
+# changes while the machine runs. The EGA card's own reset releases on the
+# clock that consumes it (video_reset_clock_sync lives in the EGA_CARD generate
+# block, so the wildcard skips whatever scope name Quartus gives it).
+# The machine model (PCXT / Tandy 1000) is applied the same way.
+set_false_path -to [get_registers {emu:emu|ega_active_vid_sync[*] \
+                                   emu:emu|crt480i_out_meta}]
+set_false_path -to [get_registers {emu:emu|CHIPSET:u_CHIPSET|PERIPHERALS:u_PERIPHERALS|ega_active_cga_sync[*] \
+                                   emu:emu|CHIPSET:u_CHIPSET|PERIPHERALS:u_PERIPHERALS|ega_active_hgc_sync[*] \
+                                   emu:emu|CHIPSET:u_CHIPSET|PERIPHERALS:u_PERIPHERALS|tandy_video_cga_sync[*] \
+                                   emu:emu|CHIPSET:u_CHIPSET|PERIPHERALS:u_PERIPHERALS|*video_reset_clock_sync[*]}]
+set_false_path -to [get_registers {sysmem_lite:sysmem|ram1_reset_0 \
+                                    sysmem_lite:sysmem|ram2_reset_0 \
+                                    sysmem_lite:sysmem|vbuf_reset_0}]
+set_false_path -to [get_registers {ascal:ascal|i_reset_na \
+                                   ascal:ascal|o_reset_na \
+                                   ascal:ascal|avl_reset_na}]
+
+set_false_path -to [get_registers  {emu:emu|scale_video_meta[*] \
+                                    emu:emu|screen_mode_video_meta[*] \
+                                    emu:emu|border_video_meta \
+                                    emu:emu|scale_cga_meta[*] \
+                                    emu:emu|screen_mode_cga_meta[*] \
+                                    emu:emu|ar_video_out_meta[*] \
+                                    emu:emu|swap_video_out_meta \
+                                    emu:emu|border_video_out_meta \
+                                    emu:emu|scale_video_out_meta[*]}]
+
+set_max_delay -from [get_registers {emu:emu|CHIPSET:u_CHIPSET|PERIPHERALS:u_PERIPHERALS|video_io_address[*]}] \
+              -to   [get_registers {emu:emu|CHIPSET:u_CHIPSET|PERIPHERALS:u_PERIPHERALS|cga_io_address_1[*]}] $VIDEO_TO_SYSYEM_DELAY
+
+set_max_delay -from [get_registers {emu:emu|CHIPSET:u_CHIPSET|PERIPHERALS:u_PERIPHERALS|video_io_data[*]}] \
+              -to   [get_registers {emu:emu|CHIPSET:u_CHIPSET|PERIPHERALS:u_PERIPHERALS|cga_io_data_1[*]}] $VIDEO_TO_SYSYEM_DELAY
+
+set_max_delay -from [get_registers {emu:emu|CHIPSET:u_CHIPSET|PERIPHERALS:u_PERIPHERALS|video_io_write_n}] \
+              -to   [get_registers {emu:emu|CHIPSET:u_CHIPSET|PERIPHERALS:u_PERIPHERALS|cga_io_write_n_1}] $VIDEO_TO_SYSYEM_DELAY
+
+set_max_delay -from [get_registers {emu:emu|CHIPSET:u_CHIPSET|PERIPHERALS:u_PERIPHERALS|video_io_read_n}] \
+              -to   [get_registers {emu:emu|CHIPSET:u_CHIPSET|PERIPHERALS:u_PERIPHERALS|cga_io_read_n_1}] $VIDEO_TO_SYSYEM_DELAY
+
+set_max_delay -from [get_registers {emu:emu|CHIPSET:u_CHIPSET|PERIPHERALS:u_PERIPHERALS|video_address_enable_n}] \
+              -to   [get_registers {emu:emu|CHIPSET:u_CHIPSET|PERIPHERALS:u_PERIPHERALS|cga_address_enable_n_1}] $VIDEO_TO_SYSYEM_DELAY
+
+set_max_delay -to   [get_registers {emu:emu|CHIPSET:u_CHIPSET|PERIPHERALS:u_PERIPHERALS|CGA_CRTC_DOUT_1[*] \
+                                    emu:emu|CHIPSET:u_CHIPSET|PERIPHERALS:u_PERIPHERALS|CGA_CRTC_OE_1}] $VIDEO_TO_SYSYEM_DELAY
+
+set_max_delay -from [get_registers {emu:emu|CHIPSET:u_CHIPSET|PERIPHERALS:u_PERIPHERALS|video_io_address[*]}] \
+              -to   [get_registers {emu:emu|CHIPSET:u_CHIPSET|PERIPHERALS:u_PERIPHERALS|hgc_io_address_1[*]}] $VIDEO_TO_SYSYEM_DELAY
+
+set_max_delay -from [get_registers {emu:emu|CHIPSET:u_CHIPSET|PERIPHERALS:u_PERIPHERALS|video_io_data[*]}] \
+              -to   [get_registers {emu:emu|CHIPSET:u_CHIPSET|PERIPHERALS:u_PERIPHERALS|hgc_io_data_1[*]}] $VIDEO_TO_SYSYEM_DELAY
+
+set_max_delay -from [get_registers {emu:emu|CHIPSET:u_CHIPSET|PERIPHERALS:u_PERIPHERALS|video_io_read_n}] \
+              -to   [get_registers {emu:emu|CHIPSET:u_CHIPSET|PERIPHERALS:u_PERIPHERALS|hgc_io_read_n_1}] $VIDEO_TO_SYSYEM_DELAY
+
+set_max_delay -from [get_registers {emu:emu|CHIPSET:u_CHIPSET|PERIPHERALS:u_PERIPHERALS|video_io_write_n}] \
+              -to   [get_registers {emu:emu|CHIPSET:u_CHIPSET|PERIPHERALS:u_PERIPHERALS|hgc_io_write_n_1}] $VIDEO_TO_SYSYEM_DELAY
+
+set_max_delay -from [get_registers {emu:emu|CHIPSET:u_CHIPSET|PERIPHERALS:u_PERIPHERALS|video_address_enable_n}] \
+              -to   [get_registers {emu:emu|CHIPSET:u_CHIPSET|PERIPHERALS:u_PERIPHERALS|hgc_address_enable_n_1}] $VIDEO_TO_SYSYEM_DELAY
+
+set_max_delay -from [get_registers {emu:emu|CHIPSET:u_CHIPSET|PERIPHERALS:u_PERIPHERALS|hgc:hgc1|hgc_control_reg[*]}] \
+              -to   [get_registers {emu:emu|CHIPSET:u_CHIPSET|PERIPHERALS:u_PERIPHERALS|data_bus_out[*] \
+                                    emu:emu|CHIPSET:u_CHIPSET|PERIPHERALS:u_PERIPHERALS|data_bus_out_from_chipset}] $VIDEO_TO_SYSYEM_DELAY
+
+set_max_delay -to   [get_registers {emu:emu|CHIPSET:u_CHIPSET|PERIPHERALS:u_PERIPHERALS|HGC_CRTC_DOUT_1[*] \
+                                    emu:emu|CHIPSET:u_CHIPSET|PERIPHERALS:u_PERIPHERALS|HGC_CRTC_OE_1}] $VIDEO_TO_SYSYEM_DELAY
+
+# EGA card I/O. The write stretcher posts each cycle with a guaranteed width;
+# the first register on the card's clock may take up to VIDEO_TO_SYSYEM_DELAY.
+# The wildcards skip the EGA_CARD generate scope in the instance path. A build
+# without the card has none of these registers: skip the constraints there
+# instead of warning that the wildcards match nothing.
+if {$ega_card} {
+    set_max_delay -to   [get_registers {emu:emu|CHIPSET:u_CHIPSET|PERIPHERALS:u_PERIPHERALS|*ega_io_address_sync1[*] \
+                                        emu:emu|CHIPSET:u_CHIPSET|PERIPHERALS:u_PERIPHERALS|*ega_io_data_sync1[*] \
+                                        emu:emu|CHIPSET:u_CHIPSET|PERIPHERALS:u_PERIPHERALS|*ega_io_write_n_sync1 \
+                                        emu:emu|CHIPSET:u_CHIPSET|PERIPHERALS:u_PERIPHERALS|*ega_io_read_n_sync1 \
+                                        emu:emu|CHIPSET:u_CHIPSET|PERIPHERALS:u_PERIPHERALS|*ega_address_enable_n_sync1}] $VIDEO_TO_SYSYEM_DELAY
+
+    set_max_delay -to   [get_registers {emu:emu|CHIPSET:u_CHIPSET|PERIPHERALS:u_PERIPHERALS|*EGA_IO_DOUT_SYNC1[*] \
+                                        emu:emu|CHIPSET:u_CHIPSET|PERIPHERALS:u_PERIPHERALS|*EGA_IO_OE_SYNC1}] $VIDEO_TO_SYSYEM_DELAY
+}
+
+# The Hercules graphics page crosses to the chipset clock for the memory map
+# (the video memory is in SDRAM now, there is no HGC BRAM to write any more).
+set_max_delay -from [get_registers {emu:emu|CHIPSET:u_CHIPSET|PERIPHERALS:u_PERIPHERALS|hgc:hgc1|hgc_control_reg[7]}] \
+              -to   [get_registers {emu:emu|CHIPSET:u_CHIPSET|PERIPHERALS:u_PERIPHERALS|hgc_page_meta[*]}] $VIDEO_TO_SYSYEM_DELAY
+
+set_max_delay -from [get_registers {emu:emu|hps_io:hps_io|video_calc:video_calc|vid_hcnt[*]   \
+                                    emu:emu|hps_io:hps_io|video_calc:video_calc|vid_nres[*]   \
+                                    emu:emu|hps_io:hps_io|video_calc:video_calc|vid_vcnt[*]}] \
+              -to   [get_registers {emu:emu|hps_io:hps_io|video_calc:video_calc|dout[*]}] $VIDEO_TO_SYSYEM_DELAY
+
+
+set_max_delay -from [get_registers {emu:emu|scale_video_ff[*]}] \
+              -to   [get_registers {sl_r[*]}] $VIDEO_TO_SYSYEM_DELAY
+
+set_max_delay -to   [get_registers {emu:emu|cga_hw}] $VIDEO_TO_SYSYEM_DELAY
+
+set_max_delay -to   [get_registers {emu:emu|hercules_hw}] $VIDEO_TO_SYSYEM_DELAY
+
+set_max_delay -to   [get_registers {emu:emu|CHIPSET:u_CHIPSET|PERIPHERALS:u_PERIPHERALS|swap_video_buffer_2}] $VIDEO_TO_SYSYEM_DELAY
+
+set_max_delay -to   [get_registers {emu:emu|video_credits_show_buf}] $VIDEO_TO_SYSYEM_DELAY
+
+#
+set_max_delay -from [get_registers {osd:vga_osd|info       \
+                                    osd:vga_osd|infoh[*]   \
+                                    osd:vga_osd|osd_h[*]   \
+                                    osd:vga_osd|osd_w[*]}] \
+              -to   [get_registers {osd:vga_osd|osd_de[*]  \
+                                    osd:vga_osd|osd_hcnt2[*]}] $VIDEO_TO_SYSYEM_DELAY
+
+set_max_delay -from [get_registers {osd:vga_osd|osd_enable}] \
+              -to   [get_registers {osd:vga_osd|osd_en[*]}] $VIDEO_TO_SYSYEM_DELAY
+
+set_max_delay -from [get_registers {lowlat}]    \
+              -to   [get_registers {ascal:ascal|i_mode[*]}] $VIDEO_TO_SYSYEM_DELAY
+
+set_max_delay -from [get_registers {LFB_FLT}]   \
+              -to   [get_registers {ascal:ascal|i_mode[2]}] $VIDEO_TO_SYSYEM_DELAY
+
+set_max_delay -from [get_registers {LFB_EN}]    \
+              -to   [get_registers {hmaxi[*]    \
+                                    hmini[*]    \
+                                    state[0]    \
+                                    state[1]    \
+                                    state[2]    \
+                                    vmaxi[*]    \
+                                    vmini[*]    \
+                                    ascal:ascal|i_mode[2]}] $VIDEO_TO_SYSYEM_DELAY
+
+set_max_delay -from [get_registers {FREESCALE}] \
+              -to   [get_registers {state[0]    \
+                                    state[1]    \
+                                    state[2]}] $VIDEO_TO_SYSYEM_DELAY
+
+set_max_delay -from [get_registers {HDMI_PR}]   \
+              -to   [get_registers {videow[*]}] $VIDEO_TO_SYSYEM_DELAY
+
+set_max_delay -from [get_registers {cfg_done}]                              \
+              -to   [get_registers {pll_hdmi_adj:pll_hdmi_adj|i_delay[*]    \
+                                    pll_hdmi_adj:pll_hdmi_adj|i_de2         \
+                                    pll_hdmi_adj:pll_hdmi_adj|i_line[*]     \
+                                    pll_hdmi_adj:pll_hdmi_adj|i_linecpt[*]  \
+                                    pll_hdmi_adj:pll_hdmi_adj|i_vss_delay   \
+                                    pll_hdmi_adj:pll_hdmi_adj|i_vss2}] $VIDEO_TO_SYSYEM_DELAY
+
+
+# SDIO
+set_input_delay -clock { VCLK_SDIO } -max 10 [get_ports { SDIO_DAT[*] SDIO_CMD }]
+set_input_delay -clock { VCLK_SDIO } -min 5 [get_ports { SDIO_DAT[*] SDIO_CMD }]
+# SDIO_CLK is a forwarded 25MHz SPI clock in the fastest operating mode
+# (50MHz chipset clock, divide-by-2).  The card samples MOSI/CS on its rising
+# edge, one 20ns half-cycle after those signals may change.
+set_output_delay -clock { SDIO_SPI_CLK } -max 5 [get_ports { SDIO_DAT[*] SDIO_CMD }]
+set_output_delay -clock { SDIO_SPI_CLK } -min 0 [get_ports { SDIO_DAT[*] SDIO_CMD }]
+
+# SDRAM pins: W9825G6KH (the MiSTer module chip) at CL3, 114.5 MHz, with the
+# budget PCAT-286 uses for it: tAC <= 5.4 ns (-7 grade; -6 is 5.0), tOH >= 3 ns,
+# tIS 1.5 ns, tIH 1 ns, plus 0.5 ns of board on the slow side.
+set_input_delay  -clock { SDRAM_CLK } -max 5.9 [get_ports { SDRAM_DQ[*] }]
+set_input_delay  -clock { SDRAM_CLK } -min 3.0 [get_ports { SDRAM_DQ[*] }]
+set_output_delay -clock { SDRAM_CLK } -max 2.0 [get_ports { SDRAM_DQ[*] SDRAM_DQM* SDRAM_A[*] SDRAM_n*  SDRAM_BA[*] SDRAM_CKE }]
+set_output_delay -clock { SDRAM_CLK } -min -1.0 [get_ports { SDRAM_DQ[*] SDRAM_DQM* SDRAM_A[*] SDRAM_n*  SDRAM_BA[*] SDRAM_CKE }]
+# Read data: a READ registered on edge e is sampled by the chip half a
+# period later; its word is launched CL-1 chip clocks after that and is
+# captured on controller edge e+CL+1 (sdram_ctrl RD_DELAY), i.e. one and a
+# half periods after the launching chip edge: the second controller edge, not
+# the first. The hold check stays on the first one, where the previous word
+# is captured, which is the default once the setup is moved.
+set_multicycle_path -from [get_clocks SDRAM_CLK] -to [get_clocks $CLOCK_SDRAM] -setup 2
+# The chipset reaches the arbiter through sdram_xbridge (toggle handshake,
+# two-flop synchronisers); those crossings are covered by the CLOCK_CHIP
+# false paths above.
+
+#============================================================
+# DDRAM / HPS f2h bridge
+#
+# The shared 350-line framebuffer (EGA card and HGC) clocks the f2h DDRAM port
+# from the 57.27 MHz video clock (general[1]). The HPS bridge and the audio
+# PLL are independent clock domains which share the DDRAM wrapper. The wrapper
+# provides the protocol crossings, so do not make TimeQuest close false
+# synchronous relationships between these domains.
+#============================================================
+set CLOCK_AUDIO {pll_audio|pll_audio_inst|altera_pll_i|general[0].gpll~PLL_OUTPUT_COUNTER|divclk}
+
+set_clock_groups -asynchronous \
+    -group [get_clocks $CLOCK_VGA_MDA] \
+    -group [get_clocks $CLOCK_H2F]      \
+    -group [get_clocks $CLOCK_AUDIO]
