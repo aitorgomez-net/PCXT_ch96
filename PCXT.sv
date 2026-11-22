@@ -118,10 +118,6 @@ module emu
     assign HDMI_BLACKOUT = 0;
     assign HDMI_BOB_DEINT = 0;
 
-    // Chameleon96 framework: QSPI PSRAM add-on ports, not used (the core targets the HPS DDR3)
-    assign {PSRAM_SCLK, PSRAM_CE_N, PSRAM_SIO_OUT, PSRAM_SIO_OE} = {1'b0, 1'b1, 4'b0000, 4'b0000};
-    assign {PSRAM2_SCLK, PSRAM2_CE_N, PSRAM2_SIO_OUT, PSRAM2_SIO_OE} = {1'b0, 1'b1, 4'b0000, 4'b0000};
-
     assign LED_DISK = 0;
     assign LED_POWER = 0;
     assign BUTTONS = 0;
@@ -307,8 +303,14 @@ module emu
     localparam CONF_STR_PJ_WP = `ROM_IS_PCJR ? "OJ,Write Protect,No,Yes;"
         : (HAS_PCJR_MODEL ? "h2OJK,Write Protect,None,A:,B:,A: & B:;hEOJ,Write Protect,No,Yes;"
                           : "OJK,Write Protect,None,A:,B:,A: & B:;");
+`ifdef MISTER_CHAMELEON96
+    // No secondary SD slot on the Chameleon96.
+    localparam CONF_STR_PJ_IDE = `ROM_IS_PCJR ? ""
+        : {PJ_H2, "S2,VHD,IDE 0-0;", PJ_H2, "S3,VHD,IDE 0-1;", PJ_H2, "-;"};
+`else
     localparam CONF_STR_PJ_IDE = `ROM_IS_PCJR ? ""
         : {PJ_H2, "S2,VHD,IDE 0-0;", PJ_H2, "S3,VHD,IDE 0-1;", PJ_H2, "OLM,2nd SD card,Disable,IDE 0-0,IDE 0-1;", PJ_H2, "-;"};
+`endif
     localparam CONF_STR_PJ_SPEED = `ROM_IS_PCJR ? ""
         : {PJ_H2, "OHI,CPU Speed,4.77MHz,7.16MHz,9.54MHz,Max;", PJ_H2, "-;"};
     localparam CONF_STR_PJ_CPU = `ROM_IS_PCJR ? ""
@@ -362,7 +364,11 @@ module emu
         "P2O89,Aspect ratio,Original,Full Screen,[ARC1],[ARC2];",
         CONF_STR_VIDEO_CGA,
         "P2OEG,Display,Full Color,Green,Amber,B&W,Red,Blue,Fuchsia,Purple;",
+`ifndef MISTER_CHAMELEON96
+        // No analog video output on the Chameleon96. Left out with the
+        // preprocessor: a bare "" in this concatenation trips Quartus 17.
         CONF_STR_CRT,
+`endif
         "P2-;",
         "P3,Hardware;",
         "P3-;",
@@ -611,7 +617,14 @@ module emu
     // per-program override.
     wire [2:0] vsync_width_osd = eff_vsync_w;    // 0=Auto (use register), 1-7=override
     wire [2:0] hsync_width_osd = eff_hsync_w;    // 0=Auto, 1-7=fixed width (Nx16 pixel clocks)
+`ifdef MISTER_CHAMELEON96
+    // No analog video output: the 350-line 15 kHz conversion (DDR3 capture and
+    // 240p/480i readout) stays off and synthesis drops it, so DDRAM is free for
+    // the core RAM.
+    wire [1:0] crt480i_mode = 2'b00;
+`else
     wire [1:0] crt480i_mode = status[35:34];     // 0=native, 1=480i, 2=240p
+`endif
     wire       crt480i_osd  = |crt480i_mode;
     wire       crt480i_prog = crt480i_mode[1];
 
@@ -1086,6 +1099,10 @@ module emu
     // controller clock).
     wire sdram_clk_src = clk_sdram_pin;
 
+`ifdef MISTER_CHAMELEON96
+    // No SDRAM on the Chameleon96: a DDR output cell needs a pin to drive.
+    assign SDRAM_CLK = 1'b0;
+`else
     altddio_out
     #(
         .extend_oe_disable  ("OFF"),
@@ -1110,6 +1127,7 @@ module emu
         .sclr               (1'b0),
         .sset               (1'b0)
     );
+`endif
 
     // Controller-side reset: asserted with reset_sdram, released on clk_sdram.
     (* altera_attribute = "-name SYNCHRONIZER_IDENTIFICATION FORCED_IF_ASYNCHRONOUS" *) logic [1:0] sd_reset_sync = 2'b11;
@@ -2641,9 +2659,15 @@ module emu
     logic spi_mosi;
     logic spi_miso;
 
+`ifdef MISTER_CHAMELEON96
+    wire [1:0] use_mmc_osd = 2'b00;   // no secondary SD slot on this board
+`else
+    wire [1:0] use_mmc_osd = status[22:21];
+`endif
+
     always @(posedge clk_chipset)
         if (reset)
-            use_mmc <= status[22:21];
+            use_mmc <= use_mmc_osd;
         else
             use_mmc <= use_mmc;
 
@@ -2656,7 +2680,7 @@ module emu
     // one of them has been changed and is still waiting for the next reset.
     wire reset_pending = (cpu_type_8086_osd       != is8086_applied)
                        | (HAS_EGA && (ega_monitor_profile_osd != ega_monitor_profile_applied))
-                       | (status[22:21]           != use_mmc)
+                       | (use_mmc_osd             != use_mmc)
                        | (CARD_SELECTABLE && (card_sel_ega != ega_active))
                        | (HAS_MODEL && (tandy_sel_osd != tandy_applied))
                        | (HAS_PCJR_MODEL && (pcjr_sel_osd != pcjr_applied))

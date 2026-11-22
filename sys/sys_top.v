@@ -21,12 +21,37 @@
 
 module sys_top
 (
+`ifdef MISTER_CHAMELEON96
+	//////////// Chameleon96 (5CSEBA6U19I7) //////////
+	// No FPGA-side oscillator: the 50 MHz clocks come from HPS h2f_user1_clk.
+
+	//////////// HPS I2C2 -> TDA19988 //////////
+	output        HDMI_I2C_SCL,
+	inout         HDMI_I2C_SDA,
+
+	//////////// TDA19988 I2S audio //////////
+	output        HDMI_MCLK,
+	output        HDMI_SCLK,
+	output        HDMI_LRCLK,
+	output        HDMI_I2S,
+
+	//////////// TDA19988 parallel RGB565 //////////
+	output        HDMI_TX_CLK,
+	output        HDMI_TX_DE,
+	output  [4:0] LCD_R,
+	output  [5:0] LCD_G,
+	output  [4:0] LCD_B,
+	output        HDMI_TX_HS,
+	output        HDMI_TX_VS,
+
+	//////////// RF LEDs //////////
+	output        LED_YELLOW,
+	output        LED_BLUE
+`else
 	/////////// CLOCK //////////
 	input         FPGA_CLK1_50,
 	input         FPGA_CLK2_50,
 	input         FPGA_CLK3_50,
-
-	output        clk_50m,
 
 	//////////// HDMI //////////
 	output        HDMI_I2C_SCL,
@@ -58,21 +83,6 @@ module sys_top
 	output        SDRAM_CLK,
 	output        SDRAM_CKE,
 
-	//////////// PSRAM ///////////
-	output        PSRAM_SCLK,
-	output        PSRAM_CE_N,
-	output  [3:0] PSRAM_SIO_OUT,
-	output  [3:0] PSRAM_SIO_OE,
-	input   [3:0] PSRAM_SIO_IN,
-
-	output        PSRAM2_SCLK,
-	output        PSRAM2_CE_N,
-	output  [3:0] PSRAM2_SIO_OUT,
-	output  [3:0] PSRAM2_SIO_OE,
-	input   [3:0] PSRAM2_SIO_IN,
-
-    output FAN_PWM,
-    
 `ifdef MISTER_DUAL_SDRAM
 	////////// SDR #2 //////////
 	output [12:0] SDRAM2_A,
@@ -139,11 +149,81 @@ module sys_top
 
 	///////// USER IO ///////////
 	inout   [6:0] USER_IO
+`endif
 );
+
+`ifdef MISTER_CHAMELEON96
+// Board signals of the DE10-nano that do not exist on the Chameleon96 are
+// kept as internal nets so the rest of this file is shared by both boards.
+wire        clk_50m;                 // HPS h2f_user1_clk, driven by sysmem
+wire        FPGA_CLK1_50 = clk_50m;
+wire        FPGA_CLK2_50 = clk_50m;
+wire        FPGA_CLK3_50 = clk_50m;
+
+// RGB888 -> RGB565: R[4:0]<-D[23:19], G[5:0]<-D[15:10], B[4:0]<-D[7:3].
+wire [23:0] HDMI_TX_D;
+assign      LCD_R = HDMI_TX_D[23:19];
+assign      LCD_G = HDMI_TX_D[15:10];
+assign      LCD_B = HDMI_TX_D[7:3];
+wire        HDMI_TX_INT = 1'b1;      // TDA19988 interrupt is not routed
+
+wire [12:0] SDRAM_A;
+wire [15:0] SDRAM_DQ;
+wire        SDRAM_DQML, SDRAM_DQMH, SDRAM_nWE, SDRAM_nCAS, SDRAM_nRAS, SDRAM_nCS;
+wire  [1:0] SDRAM_BA;
+wire        SDRAM_CLK, SDRAM_CKE;
+
+wire  [5:0] VGA_R, VGA_G, VGA_B;
+wire        VGA_HS, VGA_VS;
+wire        VGA_EN = 1'b1;           // analog I/O board absent
+wire        AUDIO_L, AUDIO_R, AUDIO_SPDIF;
+wire        LED_USER, LED_HDD, LED_POWER;
+wire        BTN_USER = 1'b1, BTN_OSD = 1'b1, BTN_RESET = 1'b1;
+
+wire        ADC_SCK, ADC_SDI, ADC_CONVST;
+wire        ADC_SDO = 1'b0;
+wire  [1:0] KEY = 2'b11;
+wire  [3:0] SW  = 4'b0000;
+
+// Fan: fixed ~50 % PWM at 50 MHz / 2^20 (about 48 Hz), as in teiram's
+// Template_MiSTer_ch96. It needs a preloader that lends HPS GPIO49 to the
+// FPGA (hps-ch96 97e5fe4 or later); with an older one the fan is not driven.
+reg  [19:0] fan_cnt = 20'd0;
+reg         fan_pwm = 1'b0;
+always @(posedge clk_50m) begin
+	fan_cnt <= fan_cnt + 1'd1;
+	fan_pwm <= (fan_cnt > 20'd524288);
+end
+
+// HPS GPIOs lent to the FPGA by the hps-ch96 handoff (LoanIO):
+//   14/22/25/32 - user LEDs D5-D8 from LED[0]/[2]/[4]/[6], active high;
+//   49          - fan PWM.
+// LED[1]/LED[3] drive the RF LEDs on FPGA pins Y19/Y20.
+wire  [7:0] LED;
+wire [66:0] loan_io_in;
+wire [66:0] loan_io_out = ({66'd0, LED[0]}  << 14) | ({66'd0, LED[2]} << 22)
+                        | ({66'd0, LED[4]}  << 25) | ({66'd0, LED[6]} << 32)
+                        | ({66'd0, fan_pwm} << 49);
+wire [66:0] loan_io_oe  = (67'd1 << 14) | (67'd1 << 22) | (67'd1 << 25)
+                        | (67'd1 << 32) | (67'd1 << 49);
+cyclonev_hps_interface_loan_io loan_io_inst
+(
+	.loanio_in(loan_io_in),
+	.loanio_out(loan_io_out),
+	.loanio_oe(loan_io_oe)
+);
+assign LED_YELLOW = LED[1];
+assign LED_BLUE   = LED[3];
+`endif
 
 //////////////////////  Secondary SD  ///////////////////////////////////
 wire SD_CS, SD_CLK, SD_MOSI, SD_MISO, SD_CD;
 
+`ifdef MISTER_CHAMELEON96
+	// No secondary SD slot: report "no card".
+	assign SD_CD       = 1'b1;
+	assign SD_MISO     = 1'b1;
+`else
 `ifndef MISTER_DUAL_SDRAM
 	wire   sd_cd       = SDCD_SPDIF & ~SW[2]; // SW[2]=ON workaround for faulty boards without SD card detect pin.
 	assign SD_CD       = mcp_en ? mcp_sdcd : sd_cd;
@@ -159,6 +239,7 @@ wire SD_CS, SD_CLK, SD_MOSI, SD_MISO, SD_CD;
 	assign SD_SPI_CLK  = mcp_sdcd ? 1'bZ : SD_CLK;
 	assign SD_SPI_MOSI = mcp_sdcd ? 1'bZ : SD_MOSI;
 `endif
+`endif
 
 //////////////////////  LEDs/Buttons  ///////////////////////////////////
 
@@ -170,14 +251,25 @@ wire led_d =  led_disk[1]  ? ~led_disk[0]  : ~(led_disk[0] | gp_out[29]);
 wire led_u = ~led_user;
 wire led_locked;
 
-// Chameleon96: bits 1/3 carry the two RF LEDs (yellow=video-active,
-// blue=always-on) as active-high "1=lit" like bits 5/6, so UIO_LEDS overrides them.
+`ifdef MISTER_CHAMELEON96
+// Bits 1/3 carry the two RF LEDs (yellow=video-active, blue=always-on) as
+// active-high like the other bits, so UIO_LEDS can still override them.
 assign LED = (led_overtake & led_state) | (~led_overtake & {1'b0, led_locked, 1'b0, ~led_p, 1'b1, ~led_d, HDMI_TX_DE, ~led_u});
+`else
+//LEDs on de10-nano board
+assign LED = (led_overtake & led_state) | (~led_overtake & {1'b0,led_locked,1'b0, ~led_p, 1'b0, ~led_d, 1'b0, ~led_u});
+`endif
 
 wire [2:0] mcp_btn;
 wire       mcp_sdcd;
 wire       mcp_en;
 wire       mcp_mode;
+`ifdef MISTER_CHAMELEON96
+assign mcp_btn  = 3'b000;
+assign mcp_sdcd = 1'b1;
+assign mcp_en   = 1'b0;
+assign mcp_mode = 1'b0;
+`else
 mcp23009 mcp23009
 (
 	.clk(FPGA_CLK2_50),
@@ -191,6 +283,7 @@ mcp23009 mcp23009
 	.scl(IO_SCL),
 	.sda(IO_SDA)
 );
+`endif
 
 wire io_dig = mcp_en ? mcp_mode : SW[3];
 
@@ -614,19 +707,6 @@ always @(posedge FPGA_CLK2_50) begin
 	resetd2 <= resetd;
 end
 
-///////////////////////////  FAN PWM  ///////////////////////////////////
-
-reg pwm_reg = 1'b0;
-localparam [19:0] PWM_DUTY_CYCLE = 20'd524288;
-always @(posedge FPGA_CLK2_50) begin
-    reg [19:0] counter;
-    counter <= counter + 1'b1;
-    
-    if (counter > PWM_DUTY_CYCLE) pwm_reg <= 1'b1;
-    else pwm_reg <= 1'b0;
-end
-
-assign FAN_PWM = pwm_reg;
 ////////////////////  SYSTEM MEMORY & SCALER  /////////////////////////
 
 wire reset;
@@ -638,7 +718,9 @@ sysmem_lite sysmem
 	.reset_core_req(reset_req),
 	.reset_out(reset),
 	.clock(clk_100m),
+`ifdef MISTER_CHAMELEON96
 	.clk_50m(clk_50m),
+`endif
 
 	//DE10-nano has no reset signal on GPIO, so core has to emulate cold reset button.
 	.reset_hps_cold_req(btn_r),
@@ -745,7 +827,11 @@ wire         bob_deint;
 
 	ascal 
 	#(
-		.RAMBASE(32'h1E800000),
+`ifdef MISTER_CHAMELEON96
+		.RAMBASE(32'h1E800000), // top of the 256 MiB no-map window
+`else
+		.RAMBASE(32'h20000000),
+`endif
 	`ifdef MISTER_SMALL_VBUF
 		.RAMSIZE(32'h00200000),
 	`else
@@ -820,7 +906,7 @@ wire         bob_deint;
 		.vrrmax   (HEIGHT + VBP + VS[11:0] + 12'd1),
 		.swblack  (hdmi_blackout),
 
-		.mode     ({~lowlat,LFB_EN ? LFB_FLT : |scaler_flt,2'b00}),
+		.mode     ({1'b0,~lowlat,LFB_EN ? LFB_FLT : |scaler_flt,2'b00}),
 		.poly_clk (clk_sys),
 		.poly_a   (coef_addr),
 		.poly_dw  (coef_data),
@@ -1212,7 +1298,12 @@ cyclonev_hps_interface_peripheral_i2c hdmi_i2c
 	wire [23:0] hdmi_data_osd;
 	wire        hdmi_de_osd, hdmi_vs_osd, hdmi_hs_osd;
 
-	osd #(.OSD_COLOR(1)) hdmi_osd
+	osd
+`ifdef MISTER_CHAMELEON96
+	// OSD tint used by the Chameleon96 framework (Template_MiSTer_ch96).
+	#(.OSD_COLOR(3'd1))
+`endif
+	hdmi_osd
 	(
 		.clk_sys(clk_sys),
 
@@ -1588,7 +1679,9 @@ end
 
 /////////////////////////  Audio output  ////////////////////////////////
 
+`ifndef MISTER_CHAMELEON96
 assign SDCD_SPDIF = (mcp_en & ~spdif) ? 1'b0 : 1'bZ;
+`endif
 
 `ifndef MISTER_DUAL_SDRAM
 	wire analog_l, analog_r;
@@ -1690,6 +1783,10 @@ audio_out audio_out
 
 ////////////////  User I/O (USB 3.0 connector) /////////////////////////
 
+`ifdef MISTER_CHAMELEON96
+// No user port: every line idles high, as with the DE10-nano pull-ups.
+assign user_in = 7'b1111111;
+`else
 assign USER_IO[0] =                       !user_out[0]  ? 1'b0 : 1'bZ;
 assign USER_IO[1] =                       !user_out[1]  ? 1'b0 : 1'bZ;
 assign USER_IO[2] = !(SW[1] ? HDMI_I2S   : user_out[2]) ? 1'b0 : 1'bZ;
@@ -1705,6 +1802,7 @@ assign user_in[3] =         USER_IO[3];
 assign user_in[4] = SW[1] | USER_IO[4];
 assign user_in[5] = SW[1] | USER_IO[5];
 assign user_in[6] =         USER_IO[6];
+`endif
 
 
 ///////////////////  User module connection ////////////////////////////
@@ -1788,9 +1886,8 @@ wire [13:0] fb_stride;
 emu emu
 (
 	.CLK_50M(FPGA_CLK2_50),
-	.CLK_100M(clk_100m),
 	.RESET(reset),
-	.HPS_BUS({f1, HDMI_TX_VS, 
+	.HPS_BUS({f1, HDMI_TX_VS,
 				 clk_100m, clk_ihdmi,
 				 ce_hpix, hde_emu, hhs_fix, hvs_fix, 
 				 io_wait, clk_sys, io_fpga, io_uio, io_strobe, io_wide, io_din, io_dout}),
@@ -1876,18 +1973,6 @@ emu emu
 	.SDRAM_CLK(SDRAM_CLK),
 	.SDRAM_CKE(SDRAM_CKE),
 
-	.PSRAM_SCLK(PSRAM_SCLK),
-	.PSRAM_CE_N(PSRAM_CE_N),
-	.PSRAM_SIO_OUT(PSRAM_SIO_OUT),
-	.PSRAM_SIO_OE(PSRAM_SIO_OE),
-	.PSRAM_SIO_IN(PSRAM_SIO_IN),
-
-	.PSRAM2_SCLK(PSRAM2_SCLK),
-	.PSRAM2_CE_N(PSRAM2_CE_N),
-	.PSRAM2_SIO_OUT(PSRAM2_SIO_OUT),
-	.PSRAM2_SIO_OE(PSRAM2_SIO_OE),
-	.PSRAM2_SIO_IN(PSRAM2_SIO_IN),
-    
 `ifdef MISTER_DUAL_SDRAM
 	.SDRAM2_DQ(SDRAM2_DQ),
 	.SDRAM2_A(SDRAM2_A),

@@ -2371,8 +2371,8 @@ BEGIN
 				o_off  (2)<=off_v;
 			END IF;
 
-			-- Sometimes o_clk is paused during PLL reconfig and causes o_state to get stuck in sREAD state.
-			-- Reset state at VSync.
+			-- o_clk can pause during PLL reconfiguration. Recover the output
+			-- state machine at the next vertical sync instead of remaining stuck.
 			IF o_vsv(1)='1' AND o_vsv(0)='0' THEN
 				o_copy<=sWAIT;
 				o_state<=sDISP;

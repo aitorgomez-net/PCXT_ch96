@@ -27,7 +27,14 @@ module  pll_hdmi_0002(
 		.pll_dsm_out_sel("1st_order"),
 		.operation_mode("direct"),
 		.number_of_clocks(1),
+`ifdef MISTER_CHAMELEON96
+		// Chameleon96: power-up and timing-analysis frequency is 720p60, the
+		// mode the board's TDA19988 setup uses (as in Template_MiSTer_ch96).
+		// Main_MiSTer reprograms the PLL for the selected video mode anyway.
 		.output_clock_frequency0("74.250000 MHz"),
+`else
+		.output_clock_frequency0("148.500000 MHz"),
+`endif
 		.phase_shift0("0 ps"),
 		.duty_cycle0(50),
 		.output_clock_frequency1("0 MHz"),
@@ -91,13 +98,22 @@ module  pll_hdmi_0002(
 		.n_cnt_bypass_en("true"),
 		.m_cnt_odd_div_duty_en("false"),
 		.n_cnt_odd_div_duty_en("false"),
+`ifdef MISTER_CHAMELEON96
 		.c_cnt_hi_div0(3),
 		.c_cnt_lo_div0(3),
+`else
+		.c_cnt_hi_div0(2),
+		.c_cnt_lo_div0(1),
+`endif
 		.c_cnt_prst0(1),
 		.c_cnt_ph_mux_prst0(0),
 		.c_cnt_in_src0("ph_mux_clk"),
 		.c_cnt_bypass_en0("false"),
+`ifdef MISTER_CHAMELEON96
 		.c_cnt_odd_div_duty_en0("false"),
+`else
+		.c_cnt_odd_div_duty_en0("true"),
+`endif
 		.c_cnt_hi_div1(1),
 		.c_cnt_lo_div1(1),
 		.c_cnt_prst1(1),

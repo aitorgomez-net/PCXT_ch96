@@ -7,12 +7,11 @@
 #
 # --------------------------------------------------------------------------
 
-set_global_assignment -name TOP_LEVEL_ENTITY ch96_top
-set_global_assignment -name FAMILY "Cyclone V"
-set_global_assignment -name DEVICE 5CSEBA6U19I7
-set_global_assignment -name DEVICE_FILTER_PACKAGE UFBGA
-set_global_assignment -name DEVICE_FILTER_PIN_COUNT 484
-set_global_assignment -name DEVICE_FILTER_SPEED_GRADE 7
+# sys_top stays the top-level entity, as in the DE10-nano build: every board
+# difference is behind MISTER_CHAMELEON96, so SYSTEM.sdc and sys_top.sdc keep
+# naming instances relative to sys_top (same approach as the PCAT-286 port).
+# Device and pins: sys/pins_ch96.tcl.
+set_global_assignment -name TOP_LEVEL_ENTITY sys_top
 set_global_assignment -name PARTITION_NETLIST_TYPE SOURCE -section_id Top
 set_global_assignment -name PARTITION_FITTER_PRESERVATION_LEVEL PLACEMENT_AND_ROUTING -section_id Top
 set_global_assignment -name PARTITION_COLOR 16764057 -section_id Top
@@ -54,6 +53,7 @@ set_global_assignment -name PHYSICAL_SYNTHESIS_ASYNCHRONOUS_SIGNAL_PIPELINING ON
 set_global_assignment -name ALM_REGISTER_PACKING_EFFORT MEDIUM
 set_global_assignment -name SEED 5
 
+set_global_assignment -name VERILOG_MACRO "MISTER_CHAMELEON96"
 # Chameleon96 has no ALSA (HPS SPI1) hookup.
 set_global_assignment -name VERILOG_MACRO "MISTER_DISABLE_ALSA=1"
 
@@ -62,8 +62,7 @@ source config.tcl
 set_global_assignment -name PRE_FLOW_SCRIPT_FILE quartus_sh:scripts/config_check.tcl
 set_global_assignment -name SYSTEMVERILOG_FILE PCXT.sv
 
-# Board and framework
-set_global_assignment -name SDC_FILE PCXT_ch96.sdc
+# Board and framework (sys_top.sdc comes in through sys/sys.qip)
 source sys/pins_ch96.tcl
 source sys/hps_ch96.tcl
 source files.qip

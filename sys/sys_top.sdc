@@ -1,9 +1,24 @@
 # Specify root clocks
+set mister_ch96 0
+foreach_in_collection a [get_all_global_assignments -name VERILOG_MACRO] {
+   if {[lindex $a 2] eq "MISTER_CHAMELEON96"} { set mister_ch96 1 }
+}
+if {$mister_ch96} {
+   # The Chameleon96 has no FPGA-side oscillator. FPGA_CLK1/2/3_50 are one
+   # net fed by HPS h2f_user1_clk; it keeps the FPGA_CLK2_50 clock name so
+   # the constraints that refer to the 50 MHz system clock still apply.
+   create_clock -period "50.0 MHz" [get_pins -compatibility_mode *|h2f_user1_clk] -name FPGA_CLK2_50
+} else {
 create_clock -period "50.0 MHz"  [get_ports FPGA_CLK1_50]
 create_clock -period "50.0 MHz"  [get_ports FPGA_CLK2_50]
 create_clock -period "50.0 MHz"  [get_ports FPGA_CLK3_50]
-create_clock -period "100.0 MHz" [get_pins -compatibility_mode *|h2f_user0_clk] 
-create_clock -period "100.0 MHz" [get_pins -compatibility_mode spi|sclk_out] -name spi_sck
+}
+create_clock -period "100.0 MHz" [get_pins -compatibility_mode *|h2f_user0_clk]
+# The HPS SPI master only exists when ALSA is built in.
+set spi_sck_pin [get_pins -nowarn -compatibility_mode spi|sclk_out]
+if {[get_collection_size $spi_sck_pin]} {
+create_clock -period "100.0 MHz" $spi_sck_pin -name spi_sck
+}
 create_clock -period "10.0 MHz"  [get_pins -compatibility_mode hdmi_i2c|out_clk] -name hdmi_sck
 
 derive_pll_clocks
@@ -21,6 +36,9 @@ set_clock_groups -exclusive \
    -group [get_clocks { FPGA_CLK2_50 }] \
    -group [get_clocks { FPGA_CLK3_50 }]
 
+if {$mister_ch96} {
+set_false_path -to   [get_ports {LED_*}]
+} else {
 set_false_path -from [get_ports {KEY*}]
 set_false_path -from [get_ports {BTN_*}]
 set_false_path -to   [get_ports {LED_*}]
@@ -30,6 +48,7 @@ set_false_path -to   [get_ports {AUDIO_SPDIF}]
 set_false_path -to   [get_ports {AUDIO_L}]
 set_false_path -to   [get_ports {AUDIO_R}]
 set_false_path -from {get_ports {SW[*]}}
+}
 set_false_path -to   {cfg[*]}
 set_false_path -from {cfg[*]}
 set_false_path -from {VSET[*]}
@@ -73,5 +92,7 @@ set_false_path -from {ascal|o_htotal* ascal|o_vtotal*}
 set_false_path -from {ascal|o_hsstart* ascal|o_vsstart* ascal|o_hsend* ascal|o_vsend*}
 set_false_path -from {ascal|o_hsize* ascal|o_vsize*}
 
+if {!$mister_ch96} {
 set_false_path -from {mcp23009|flg_*}
+}
 set_false_path -to   {sysmem|fpga_interfaces|clocks_resets|f2h*}

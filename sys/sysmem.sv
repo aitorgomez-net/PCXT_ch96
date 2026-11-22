@@ -2,7 +2,9 @@
 module sysmem_lite
 (
 	output         clock,
-	output         clk_50m,
+`ifdef MISTER_CHAMELEON96
+	output         clk_50m,   // h2f_user1_clk: the board has no FPGA oscillator
+`endif
 	output         reset_out,
 
 	input          reset_hps_cold_req,
@@ -190,7 +192,9 @@ sysmem_HPS_fpga_interfaces fpga_interfaces (
 	.f2h_cold_rst_req_n       (~reset_hps_cold_req),
 	.f2h_warm_rst_req_n       (~reset_hps_warm_req),
 	.h2f_user0_clk            (clock),
+`ifdef MISTER_CHAMELEON96
 	.h2f_user1_clk            (clk_50m),
+`endif
 	.h2f_rst_n                (hps_h2f_reset_n),
 	.f2h_sdram0_clk           (vbuf_clk),
 	.f2h_sdram0_ADDRESS       (f2h_vbuf_address),
@@ -254,8 +258,10 @@ module sysmem_HPS_fpga_interfaces
 	// h2f_user0_clock
 	,output wire [1 - 1 : 0 ] h2f_user0_clk
 
+`ifdef MISTER_CHAMELEON96
 	// h2f_user1_clock
 	,output wire [1 - 1 : 0 ] h2f_user1_clk
+`endif
 
 	// f2h_sdram0_data
 	,input wire [28 - 1 : 0 ] f2h_sdram0_ADDRESS
@@ -351,9 +357,11 @@ cyclonev_hps_interface_clocks_resets clocks_resets(
 ,.h2f_user0_clk({
     h2f_user0_clk[0:0] // 0:0
   })
+`ifdef MISTER_CHAMELEON96
 ,.h2f_user1_clk({
     h2f_user1_clk[0:0] // 0:0
   })
+`endif
 );
 
 
