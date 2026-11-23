@@ -36,6 +36,39 @@ set_clock_groups -exclusive \
    -group [get_clocks { FPGA_CLK2_50 }] \
    -group [get_clocks { FPGA_CLK3_50 }]
 
+# The Cyclone V f2sdram timing model can attribute an output of one DDR port
+# to the clock of another, which shows up as paths between the ports' clocks
+# through the HPS hard block (ram1 = the core's DDRAM_CLK, ram2 = audio,
+# vbuf = scaler on h2f_user0_clk). They are not real, and repairing their
+# "hold" makes the fitter add tens of ns of routing. Same exceptions as the
+# PCAT-286 Chameleon96 port; direct FPGA logic crossings stay timed.
+# ram1 is clk_sdram (pll_system general[2]) on the Chameleon96 build; on the
+# DE10-Nano build DDRAM_CLK is another clock and the general[2] entry matches nothing
+# that goes through the hard block. Clocks that are not found are skipped.
+set hps_ddr_pins [get_pins -compatibility_mode -nowarn {*|f2sdram|*}]
+set ddr_port_clocks {}
+foreach pat {{*pll_system_inst*general[2]*divclk} {pll_audio*general[0]*divclk} {*h2f_user0_clk}} {
+   set c [get_clocks -nowarn $pat]
+   if {[get_collection_size $c] == 1} { lappend ddr_port_clocks $c }
+}
+if {[get_collection_size $hps_ddr_pins] > 0} {
+   set n [llength $ddr_port_clocks]
+   for {set i 0} {$i < $n} {incr i} {
+      for {set j 0} {$j < $n} {incr j} {
+         if {$i != $j} {
+            set_false_path -from [lindex $ddr_port_clocks $i] -through $hps_ddr_pins -to [lindex $ddr_port_clocks $j]
+         }
+      }
+   }
+}
+
+# sysmem synchronizes its reset separately in each DDR port clock domain; only
+# the first stage of each may see the asynchronous transition.
+foreach reset_port {ram1 ram2 vbuf} {
+   set reset_meta [get_registers -nowarn "*|${reset_port}_reset_0"]
+   if {[get_collection_size $reset_meta] == 1} { set_false_path -to $reset_meta }
+}
+
 if {$mister_ch96} {
 set_false_path -to   [get_ports {LED_*}]
 } else {

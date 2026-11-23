@@ -305,3 +305,25 @@ set_clock_groups -asynchronous \
     -group [get_clocks $CLOCK_VGA_MDA] \
     -group [get_clocks $CLOCK_H2F]      \
     -group [get_clocks $CLOCK_AUDIO]
+
+# Chameleon96: the core RAM drives the DDRAM port on clk_sdram (general[2]),
+# not on the 57.27 MHz video clock, so that is the clock to keep apart from the
+# HPS bridge and the audio PLL (no core logic crosses between them directly).
+if {$pcxt_ch96} {
+set_clock_groups -asynchronous \
+    -group [get_clocks $CLOCK_SDRAM] \
+    -group [get_clocks $CLOCK_H2F]   \
+    -group [get_clocks $CLOCK_AUDIO]
+}
+
+#============================================================
+# 8088 BIU data input
+#
+# ad_in_int (CORE_CLK, 100 MHz) registers the chipset data bus (50 MHz) on
+# every core clock, but the BIU only uses it on an edge of the 8088 CLK, many
+# core clocks after the chipset drove the data (state 06, after T3). The
+# 10 ns launch-to-next-capture relationship between the two PLL outputs is
+# therefore never the one that matters; two core clocks are allowed.
+#============================================================
+set_multicycle_path -from [get_clocks $CLOCK_CHIP] -to [get_registers {*|u_biu_core|ad_in_int[*]}] -setup -end 2
+set_multicycle_path -from [get_clocks $CLOCK_CHIP] -to [get_registers {*|u_biu_core|ad_in_int[*]}] -hold  -end 1
