@@ -1651,6 +1651,45 @@ module emu
         .ref_debt       ()
     );
 
+`ifdef MISTER_CHAMELEON96
+    // No SDRAM on the Chameleon96: the same operations go to the HPS DDR3
+    // through the f2sdram port (platform/ch96/ddram_ctrl.sv), at 0x11000000.
+    // The DDRAM port is free because the 350-line CRT conversion is off.
+    assign DDRAM_CLK = clk_sdram;
+
+    ddram_ctrl #(.BASE(32'h1100_0000)) u_ddram_ctrl
+    (
+        .clk              (clk_sdram),
+        .reset            (sd_reset),
+        .init_done        (sd_init_done),
+        .op_valid         (op_valid),
+        .op_ref           (op_ref),
+        .op_we            (op_we),
+        .op_addr          (op_addr),
+        .op_len           (op_len),
+        .op_wdata         (op_wdata),
+        .op_wbe           (op_wbe),
+        .op_tag           (op_tag),
+        .op_issue         (op_issue),
+        .bank_idle        (sd_bank_idle),
+        .rd_valid         (sd_rd_valid),
+        .rd_data          (sd_rd_data),
+        .rd_tag           (sd_rd_tag),
+        .rd_last          (sd_rd_last),
+        .ddram_busy       (DDRAM_BUSY),
+        .ddram_burstcnt   (DDRAM_BURSTCNT),
+        .ddram_addr       (DDRAM_ADDR),
+        .ddram_dout       (DDRAM_DOUT),
+        .ddram_dout_ready (DDRAM_DOUT_READY),
+        .ddram_rd         (DDRAM_RD),
+        .ddram_din        (DDRAM_DIN),
+        .ddram_be         (DDRAM_BE),
+        .ddram_we         (DDRAM_WE)
+    );
+
+    assign {SDRAM_A, SDRAM_BA, SDRAM_CKE, SDRAM_DQML, SDRAM_DQMH, SDRAM_nWE, SDRAM_nCAS, SDRAM_nRAS, SDRAM_nCS} = '1;
+    assign SDRAM_DQ = 16'hZZZZ;
+`else
     wire [15:0] sdram_dq_out;
     wire        sdram_dq_oe;
     wire [1:0]  sdram_dqm;
@@ -1690,6 +1729,7 @@ module emu
     assign SDRAM_DQ   = sdram_dq_oe ? sdram_dq_out : 16'hZZZZ;
     assign SDRAM_DQML = sdram_dqm[0];
     assign SDRAM_DQMH = sdram_dqm[1];
+`endif
 
     // The ROM loader writes the selected image one word at a time. A slot is
     // recorded as present once a word of the download has reached the SDRAM;
@@ -3212,6 +3252,14 @@ module emu
         .reading_buffer(fb_reading_buffer)
     );
 
+`ifdef MISTER_CHAMELEON96
+    // The DDRAM port belongs to the core RAM on this board (ddram_ctrl); the
+    // 350-line conversion is off, so its capture and readout get no memory.
+    assign cap_busy         = 1'b0;
+    assign fb_rd_grant      = 1'b0;
+    assign fb_rd_data       = 64'd0;
+    assign fb_rd_data_valid = 1'b0;
+`else
     // The memory runs on the video pipeline clock, so the capture, the
     // raster that reads it back and DDRAM itself are all one domain and
     // nothing has to cross between them.
@@ -3242,6 +3290,7 @@ module emu
         .wr_busy_out(cap_busy),
         .wr_grant()
     );
+`endif
 
     // Change over in the destination raster's own vertical blank. Requiring
     // both rasters to be blank at once can stall when two roughly 60 Hz modes

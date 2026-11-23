@@ -5,8 +5,8 @@ Chameleon96 board (Cyclone V SE 5CSEBA6U19I7, same die as the DE10-Nano), for
 the MiSTer port to that board by Manuel Teira (teiram) and the distribution by
 Shaeon (Distribution_MiSTer_ch96).
 
-**Status: scaffolding only.** The project builds for the board, but the core's
-memory still targets an SDRAM that the Chameleon96 does not have.
+**Status: first test build.** The core RAM, ROMs and video memory live in the
+HPS DDR3 (`platform/ch96/ddram_ctrl.sv`). Not yet checked on the board.
 
 ## Approach
 
@@ -66,9 +66,9 @@ x86 share poll at `0x100CE000`).
 
 ## To do (port)
 
-1. `platform/ch96/ddram_ctrl.sv`: DDR3 backend for `sdram_arbiter` (replaces `sdram_ctrl`
-   on this board, selected in `files.qip`).
-2. Video memory (CGA/HGC/EGA) back to BRAM, with a BRAM mirror of the Tandy/PCjr video RAM
+1. ~~`platform/ch96/ddram_ctrl.sv`: DDR3 backend for `sdram_arbiter`.~~ Done; check on the
+   board that the video fetch engines meet their deadlines with the DDR3 latency.
+2. If they do not: video memory (CGA/HGC/EGA) back to BRAM, with a BRAM mirror of the Tandy/PCjr video RAM
    fed by the write snoop, so video never waits on DDR3 latency.
 3. OSD: hide USER I/O and MT32-pi on this board (no user port), as PCAT-286 does.
 4. Main_MiSTer_ch96: check that it carries the PCXT-specific support of upstream Main_MiSTer.
