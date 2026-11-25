@@ -20,7 +20,11 @@
 //
 module cga_vram_if #(
     parameter logic [23:0] BASE  = 24'h042_8000,    // word address of the CGA region
-    parameter logic [23:0] TBASE = 24'h000_0000     // word address of the CPU image (Tandy)
+    parameter logic [23:0] TBASE = 24'h000_0000,    // word address of the CPU image (Tandy)
+    // FETCH_DELAY of the card (cga.v): clocks of 28.636 MHz by which it draws
+    // behind its CRTC, a multiple of 32. The words are asked for that much
+    // earlier and that many more of them wait in the queue.
+    parameter int          FETCH_DELAY = 0
 ) (
     input  logic        clk,                // clk_sdram
     input  logic        reset,
@@ -84,9 +88,17 @@ output logic [7:0]  vram_d,
     wire ev_att = ph_ev && ((ph_s == 5'd3)  || (hres_s && ph_s == 5'd19));
 
     // From the request to the first sample of that word (4 clk_sdram per CGA
-    // slot): 16 slots in 80-column modes, 32 in 40-column modes. The arbiter
-    // takes it as urgent once it is within T_URGENT of this.
-    wire [15:0] deadline = hres_s ? 16'd64 : 16'd128;
+    // slot): 16 slots in 80-column modes, 32 in 40-column modes, plus the
+    // delay of the card. The arbiter takes it as urgent once it is within
+    // T_URGENT of this.
+    localparam logic [15:0] DL_DELAY = 16'(4 * FETCH_DELAY);
+    wire [15:0] deadline = (hres_s ? 16'd64 : 16'd128) + DL_DELAY;
+
+    // Words in the queue at ev_req: the characters the card is behind, plus
+    // the one it samples now
+    localparam logic [3:0] STEP_80 = 4'(1 + FETCH_DELAY / 16);
+    localparam logic [3:0] STEP_40 = 4'(1 + FETCH_DELAY / 32);
+    wire [3:0] in_step = hres_s ? STEP_80 : STEP_40;
 
     // Word offset in the 128 KiB (64 Ki words) block
     function automatic logic [15:0] t_off(input logic [13:0] w);
@@ -106,7 +118,7 @@ output logic [7:0]  vram_d,
         .clk(clk), .reset(reset),
         .ev_req(ev_req), .ev_chr(ev_chr), .ev_att(ev_att), .ev_pop(ev_att),
         .cur_addr(cur_addr), .next_addr(next_addr),
-        .deadline(deadline),
+        .deadline(deadline), .in_step(in_step),
         .vram_d(vram_d),
         .req_valid(req_valid), .req_addr(req_addr), .req_len(req_len),
         .req_deadline(req_deadline), .req_ready(req_ready),

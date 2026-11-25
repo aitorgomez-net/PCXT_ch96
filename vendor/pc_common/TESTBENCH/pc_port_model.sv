@@ -25,7 +25,11 @@ module pc_port_model #(
     parameter int    VID_ACK_MAX = 6,      // sdram clocks before the ack
     parameter int    VID_LAT_MIN = 4,      // sdram clocks from ack to the first word
     parameter int    VID_LAT_MAX = 22,
-    parameter int    VID_QUEUE   = 3       // reads accepted and not finished
+    parameter int    VID_QUEUE   = 3,      // reads accepted and not finished (up to 16)
+    // A shared memory now and then holds a read back much longer: SPIKE more
+    // sdram clocks in SPIKE_PCT % of the reads (the ones after it wait too)
+    parameter int    SPIKE_PCT   = 0,
+    parameter int    SPIKE       = 0
 ) (
     input  logic         reset,         // unused here, present for ega_real_stack's port list
 
@@ -146,10 +150,10 @@ module pc_port_model #(
     // ------------------------------------------------------------------
     // VID port
     // ------------------------------------------------------------------
-    logic [23:0] rq_addr  [4];
-    logic [1:0]  rq_len   [4];
-    int          rq_start [4];
-    int          rq_t0    [4];
+    logic [23:0] rq_addr  [16];
+    logic [1:0]  rq_len   [16];
+    int          rq_start [16];
+    int          rq_t0    [16];
     int          rq_wr, rq_rd, scyc, ack_wait, beat, prev_end;
 
     initial begin rq_wr = 0; rq_rd = 0; scyc = 0; ack_wait = -1; beat = 0; prev_end = 0; end
@@ -165,21 +169,22 @@ module pc_port_model #(
             if (ack_wait == 0) begin
                 int lat;
                 lat = $urandom_range(VID_LAT_MAX, VID_LAT_MIN);
+                if (SPIKE_PCT != 0 && $urandom_range(99, 0) < SPIKE_PCT) lat = lat + SPIKE;
                 vid_ack <= 1'b1;
-                rq_addr[rq_wr % 4]  = vid_addr;
-                rq_len[rq_wr % 4]   = vid_len;
-                rq_t0[rq_wr % 4]    = scyc;
-                rq_start[rq_wr % 4] = (scyc + lat > prev_end) ? scyc + lat : prev_end;
-                prev_end = rq_start[rq_wr % 4] + words_of(vid_len);
+                rq_addr[rq_wr % 16]  = vid_addr;
+                rq_len[rq_wr % 16]   = vid_len;
+                rq_t0[rq_wr % 16]    = scyc;
+                rq_start[rq_wr % 16] = (scyc + lat > prev_end) ? scyc + lat : prev_end;
+                prev_end = rq_start[rq_wr % 16] + words_of(vid_len);
                 rq_wr = rq_wr + 1;
                 ack_wait = -1;
             end
             else ack_wait = ack_wait - 1;
         end
 
-        if (rq_rd < rq_wr && scyc >= rq_start[rq_rd % 4]) begin
+        if (rq_rd < rq_wr && scyc >= rq_start[rq_rd % 16]) begin
             int q;  logic [23:0] a;
-            q = rq_rd % 4;
+            q = rq_rd % 16;
             a = rq_addr[q] - MEM_BASE;
             vid_rvalid <= 1'b1;
             vid_rdata  <= mem[a + beat];

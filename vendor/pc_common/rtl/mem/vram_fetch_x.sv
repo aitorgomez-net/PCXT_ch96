@@ -31,7 +31,8 @@
 module vram_fetch_x #(
     parameter int DEPTH       = 4,
     parameter int MAX_WORDS   = 1,
-    parameter int SYNC_STAGES = 1
+    parameter int SYNC_STAGES = 1,
+    parameter int MAX_INFLIGHT = 4      // of the engine (vram_fetch)
 ) (
     // video domain
     input  logic        clk_v,
@@ -130,7 +131,7 @@ module vram_fetch_x #(
     wire [23:0]  eng_raddr;
     wire [1:0]   eng_rlen;
 
-    vram_fetch #(.DEPTH(DEPTH), .MAX_WORDS(MAX_WORDS)) u_engine (
+    vram_fetch #(.DEPTH(DEPTH), .MAX_WORDS(MAX_WORDS), .MAX_INFLIGHT(MAX_INFLIGHT)) u_engine (
         .clk(clk_s), .reset(reset_s),
         .req_valid(rq_pending & ~fl_pulse), .req_addr(rq_addr_r), .req_len(rq_len_r),
         .req_deadline(rq_dl_r), .req_ready(eng_ready),

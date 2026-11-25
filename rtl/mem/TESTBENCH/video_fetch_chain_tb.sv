@@ -36,9 +36,26 @@ module video_fetch_chain_tb #(
     parameter int FRAMES    = 1,        // frames per phase
     parameter int PHASES    = 99,       // number of phases to run (for quick runs)
     parameter int CMP       = 0,        // no CPU writes, and a card on a BRAM model beside it, compared pixel by pixel
-    parameter int TANDY     = 0         // CARD 0 only: Tandy 1000 video memory
+    parameter int TANDY     = 0,        // CARD 0 only: Tandy 1000 video memory
+    // Lead of the fetch: the cards draw behind their CRTC by the delays of the
+    // Chameleon96 build (sdram_pkg), the adapters and engines follow
+    parameter int FDELAY    = 0,
+    // Extra latency of the video reads, in clocks, as a shared DDR3 adds it:
+    // LAT always, plus 0..JIT, plus SPIKE in SPIKE_PCT % of the reads. The
+    // words keep their order (a late read holds back the ones after it).
+    parameter int LAT       = 0,
+    parameter int JIT       = 0,
+    parameter int SPIKE_PCT = 0,
+    parameter int SPIKE     = 0
 );
     import sdram_pkg::*;
+
+    localparam int CGA_FD  = FDELAY ? 64 : 0;
+    localparam int HGC_FDT = FDELAY ? 90 : 0;
+    localparam int HGC_FDG = FDELAY ? 96 : 0;
+    localparam int CGA_DEP = FDELAY ? 7 : 3;
+    localparam int HGC_DEP = FDELAY ? 8 : 3;
+    localparam bit INJ     = (LAT + JIT + SPIKE) != 0;
 
     localparam real TCK  = 8.730;
     localparam real LEAD = 2.0;
@@ -170,7 +187,47 @@ module video_fetch_chain_tb #(
     wire        ev_req, ev_chr, ev_att;
     wire [23:0] cur_addr, next_addr;
 
-    vram_fetch #(.DEPTH(3), .MAX_WORDS(1)) eng (
+    // Injected latency on the words of the video reads (see LAT)
+    logic        e_rvalid = 1'b0, e_rlast = 1'b0;
+    logic [15:0] e_rdata = 16'd0;
+    logic [15:0] lq_d [$];
+    logic        lq_l [$];
+    longint      lq_t [$];
+    longint      ncyc = 0, last_rel = 0, rd_rel = 0;
+    logic        in_read = 1'b0;
+    longint      n_spikes = 0;
+    always @(posedge clk) begin
+        ncyc <= ncyc + 1;
+        if (vid_rvalid) begin
+            longint rel;
+            if (!in_read) begin
+                rd_rel = ncyc + LAT + $urandom_range(0, JIT);
+                if (SPIKE_PCT != 0 && $urandom_range(0, 99) < SPIKE_PCT) begin
+                    rd_rel += SPIKE;
+                    n_spikes++;
+                end
+            end
+            rel = (rd_rel > last_rel + 1) ? rd_rel : last_rel + 1;
+            last_rel = rel;
+            lq_d.push_back(rdata);
+            lq_l.push_back(vid_rlast);
+            lq_t.push_back(rel);
+            in_read = !vid_rlast;
+        end
+        e_rvalid <= 1'b0;
+        e_rlast  <= 1'b0;
+        if (lq_t.size() > 0 && lq_t[0] <= ncyc) begin
+            e_rvalid <= 1'b1;
+            e_rlast  <= lq_l.pop_front();
+            e_rdata  <= lq_d.pop_front();
+            void'(lq_t.pop_front());
+        end
+    end
+    wire        eng_rvalid = INJ ? e_rvalid : vid_rvalid;
+    wire        eng_rlast  = INJ ? e_rlast  : vid_rlast;
+    wire [15:0] eng_rdata  = INJ ? e_rdata  : rdata;
+
+    vram_fetch #(.DEPTH(CARD == 0 ? CGA_DEP : HGC_DEP), .MAX_WORDS(1), .MAX_INFLIGHT(FDELAY ? 8 : 4)) eng (
         .clk(clk), .reset(vreset),
         .req_valid(req_v), .req_addr(req_a), .req_len(req_l), .req_deadline(req_d), .req_ready(req_r),
         .rsp_pending(rsp_p), .rsp_valid(rsp_v), .rsp_data(rsp_d), .rsp_addr(rsp_a), .rsp_len(),
@@ -178,7 +235,7 @@ module video_fetch_chain_tb #(
         .snoop_valid(sn_valid), .snoop_addr(sn_addr), .snoop_len(sn_len),
         .snoop_wdata(sn_wdata), .snoop_wbe(sn_wbe),
         .vid_req(vid_req), .vid_addr(vid_addr), .vid_len(vid_len), .vid_deadline(vid_deadline),
-        .vid_ack(vid_ack), .vid_rvalid(vid_rvalid), .vid_rlast(vid_rlast), .vid_rdata(rdata),
+        .vid_ack(vid_ack), .vid_rvalid(eng_rvalid), .vid_rlast(eng_rlast), .vid_rdata(eng_rdata),
         .underrun_count(under), .occupancy()
     );
 
@@ -204,7 +261,7 @@ module video_fetch_chain_tb #(
         if (CARD == 0) begin : g_cga
             wire hsync, vsync, hblank, vblank;
             wire [3:0] video;
-            cga card (
+            cga #(.FETCH_DELAY(CGA_FD)) card (
                 .clk(clk28), .reset(card_reset), .clkdiv(c_phase),
                 .bus_a(bus_a), .bus_ior_l(bus_ior_l), .bus_iow_l(bus_iow_l),
                 .bus_memr_l(1'b1), .bus_memw_l(1'b1), .bus_d(bus_d), .bus_out(), .bus_dir(),
@@ -237,7 +294,7 @@ module video_fetch_chain_tb #(
                 .clka(clk28), .ena(1'b0), .wea(1'b0), .addra(17'd0), .dina(8'd0), .douta(),
                 .clkb(clk28), .enb(ram_we_r), .web(1'b0), .addrb(ref_addrb), .dinb(8'd0), .doutb(ram_d_r)
             );
-            cga card_ref (
+            cga #(.FETCH_DELAY(CGA_FD)) card_ref (
                 .clk(clk28), .reset(card_reset), .clkdiv(),
                 .bus_a(bus_a), .bus_ior_l(bus_ior_l), .bus_iow_l(bus_iow_l),
                 .bus_memr_l(1'b1), .bus_memw_l(1'b1), .bus_d(bus_d), .bus_out(), .bus_dir(),
@@ -271,7 +328,7 @@ module video_fetch_chain_tb #(
             assign c_page     = 1'b0;
             assign vsync_w    = vsync;
 
-            cga_vram_if #(.BASE(BASE)) vif (
+            cga_vram_if #(.BASE(BASE), .FETCH_DELAY(CGA_FD)) vif (
                 .clk(clk), .reset(vreset),
                 .seq_phase(c_phase), .hres(c_hres), .cur_word(c_cur_word), .next_word(c_next_word),
                 .tandy(TANDY != 0), .tandy_block(t_block), .tandy_crt_page(t_page[2:0]),
@@ -287,7 +344,7 @@ module video_fetch_chain_tb #(
         else begin : g_hgc
             wire hsync, vsync, hblank, vblank, de, video, intensity, std_hs, vb;
             wire grph_page;
-            hgc card (
+            hgc #(.FETCH_DELAY_TEXT(HGC_FDT), .FETCH_DELAY_GRPH(HGC_FDG)) card (
                 .clk(clk57),
                 .bus_a(bus_a), .bus_ior_l(bus_ior_l), .bus_iow_l(bus_iow_l),
                 .bus_memr_l(1'b1), .bus_memw_l(1'b1), .bus_d(bus_d), .bus_out(), .bus_dir(),
@@ -313,7 +370,7 @@ module video_fetch_chain_tb #(
                 .clka(clk57), .ena(1'b0), .wea(1'b0), .addra(16'd0), .dina(8'd0), .douta(),
                 .clkb(clk57), .enb(ram_we_r), .web(1'b0), .addrb({page_r, ram_a_r[14:0]}), .dinb(8'd0), .doutb(ram_d_r)
             );
-            hgc card_ref (
+            hgc #(.FETCH_DELAY_TEXT(HGC_FDT), .FETCH_DELAY_GRPH(HGC_FDG)) card_ref (
                 .clk(clk57),
                 .bus_a(bus_a), .bus_ior_l(bus_ior_l), .bus_iow_l(bus_iow_l),
                 .bus_memr_l(1'b1), .bus_memw_l(1'b1), .bus_d(bus_d), .bus_out(), .bus_dir(),
@@ -339,7 +396,7 @@ module video_fetch_chain_tb #(
                 end
             end
 
-            hgc_vram_if #(.BASE(BASE)) vif (
+            hgc_vram_if #(.BASE(BASE), .FETCH_DELAY_TEXT(HGC_FDT), .FETCH_DELAY_GRPH(HGC_FDG)) vif (
                 .clk(clk), .reset(vreset),
                 .seq_phase(c_phase), .grph(c_grph), .page(c_page),
                 .cur_word(c_cur_word), .next_word(c_next_word),
@@ -628,6 +685,7 @@ module video_fetch_chain_tb #(
         $display("%0d CPU writes (%0d aimed at the next word); arbiter: CPU latency max %0d, VID latency from urgency max %0d, VID underruns %0d",
                  writes, aimed, cpu_lat_max, vid_lat_max, vid_underruns);
         $display("%0d samples compared in total, %0d differences", n_cmp, n_bad);
+        if (INJ) $display("injected latency: %0d + 0..%0d clocks, %0d spikes of +%0d", LAT, JIT, n_spikes, SPIKE);
         if (CMP != 0) begin
             $display("%0d pixels compared against the BRAM card, %0d differences", pix_n, pix_bad);
             if (pix_bad != 0) err("pixels differ from the BRAM card");

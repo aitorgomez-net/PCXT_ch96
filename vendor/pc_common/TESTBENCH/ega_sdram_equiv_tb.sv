@@ -32,7 +32,18 @@ module ega_sdram_equiv_tb #(
     parameter int SETTLE = 5,      // frames to let go before comparing
     parameter int ONLY   = -1,     // one scenario (0..5 classic, 100 CPU), -1 all
     parameter int CPU_LAT_MAX = 22,
-    parameter int VID_LAT_MAX = 22
+    parameter int VID_LAT_MAX = 22,
+    // Text path and engines (the text leads must add up to LEAD + 3)
+    parameter int LEAD_CELL   = 9,
+    parameter int LEAD_GLYPH  = 10,
+    parameter int MAIN_DEPTH  = 4,
+    parameter int GLYPH_DEPTH = 4,
+    parameter int INFLIGHT    = 4,
+    // pc_port_model only: a slower, pipelined memory with latency spikes
+    parameter int VID_LAT_MIN = 4,
+    parameter int VID_QUEUE   = 3,
+    parameter int SPIKE_PCT   = 0,
+    parameter int SPIKE       = 0
 );
 
     // ---------------------------------------------------------------- clocks
@@ -171,7 +182,9 @@ module ega_sdram_equiv_tb #(
     int         vid_max_lat;
     wire [15:0] n_underruns;
 
-    ega_vram_sdram_frontend #(.LEAD_GFX(LEAD)) new_fe (
+    ega_vram_sdram_frontend #(.LEAD_GFX(LEAD), .LEAD_CELL(LEAD_CELL), .LEAD_GLYPH(LEAD_GLYPH),
+                              .MAIN_DEPTH(MAIN_DEPTH), .GLYPH_DEPTH(GLYPH_DEPTH),
+                              .MAX_INFLIGHT(INFLIGHT)) new_fe (
         .clock(clock), .reset_cpu(reset),
         .cpu_addr(cpu_addr), .cpu_a16(cpu_a16), .cpu_din(cpu_din),
         .cpu_read(cpu_read_n), .cpu_write(cpu_write_n), .cpu_dout(n_cpu_dout), .cpu_ready(n_cpu_ready),
@@ -202,9 +215,12 @@ module ega_sdram_equiv_tb #(
     // and chip model, with a CPU hammering bank 0 (rtl/mem/TESTBENCH, Verilator)
 `ifndef PORT_MODEL
  `define PORT_MODEL pc_port_model
+ `define PM_EXTRA , .VID_LAT_MIN(VID_LAT_MIN), .VID_QUEUE(VID_QUEUE), .SPIKE_PCT(SPIKE_PCT), .SPIKE(SPIKE)
+`else
+ `define PM_EXTRA
 `endif
     wire [31:0] stack_chip_errors, stack_underruns;
-    `PORT_MODEL #(.CPU_LAT_MAX(CPU_LAT_MAX), .VID_LAT_MAX(VID_LAT_MAX)) pm (
+    `PORT_MODEL #(.CPU_LAT_MAX(CPU_LAT_MAX), .VID_LAT_MAX(VID_LAT_MAX) `PM_EXTRA) pm (
         .reset(reset), .chip_errors(stack_chip_errors), .vid_underruns_out(stack_underruns),
         .clock(clock), .m_start(m_start), .m_we(m_we), .m_addr(m_addr), .m_len(m_len),
         .m_wdata(m_wdata), .m_wbe(m_wbe), .m_busy(m_busy), .m_done(m_done), .m_rdata(m_rdata),

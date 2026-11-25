@@ -18,10 +18,11 @@
 //    carries at most one request every two clocks.
 //  * The engine of every accepted request is queued, and the words that come
 //    back are handed to the engines in that order.
-//  * At most four reads are in flight in total (the arbiter keeps four).
+//  * At most MAX_INFLIGHT reads are in flight in total.
 //
 module vid_mux #(
-    parameter int N = 2             // 2..4 engines
+    parameter int N = 2,            // 2..4 engines
+    parameter int MAX_INFLIGHT = 4  // reads in flight in total: 4 or 8 (a power of 2)
 ) (
     input  logic            clk,
     input  logic            reset,
@@ -42,7 +43,7 @@ module vid_mux #(
     input  logic            vid_rvalid,
     input  logic            vid_rlast
 );
-    localparam int MAX_INFLIGHT = 4;
+    localparam int FW = $clog2(MAX_INFLIGHT);
     localparam int SW = (N > 1) ? $clog2(N) : 1;
 
     // Choice among the asking engines
@@ -73,8 +74,8 @@ module vid_mux #(
     wire use_b = any_q && c_req[best_q];
     wire [SW-1:0] sel = use_b ? best_q : first;
 
-    logic [2:0]    if_cnt;
-    wire           room = (if_cnt < 3'(MAX_INFLIGHT));
+    logic [FW:0]   if_cnt;
+    wire           room = (if_cnt < MAX_INFLIGHT);
 
     // The register stage that the arbiter sees
     logic          stage_v;
@@ -97,7 +98,7 @@ module vid_mux #(
 
     // Who the words belong to
     logic [SW-1:0] own_q [MAX_INFLIGHT];
-    logic [1:0]    own_rd, own_wr;
+    logic [FW-1:0] own_rd, own_wr;
 
     wire [15:0] fill_dl = c_deadline[16*sel +: 16];
 
@@ -106,9 +107,9 @@ module vid_mux #(
             stage_v <= 1'b0;
             best_q  <= '0;
             any_q   <= 1'b0;
-            own_rd  <= 2'd0;
-            own_wr  <= 2'd0;
-            if_cnt  <= 3'd0;
+            own_rd  <= '0;
+            own_wr  <= '0;
+            if_cnt  <= '0;
         end
         else begin
             best_q <= best;
@@ -128,12 +129,12 @@ module vid_mux #(
 
             if (take) begin
                 own_q[own_wr] <= stage_own;
-                own_wr        <= own_wr + 2'd1;
+                own_wr        <= own_wr + 1'b1;
             end
             if (vid_rvalid && vid_rlast)
-                own_rd <= own_rd + 2'd1;
+                own_rd <= own_rd + 1'b1;
 
-            if_cnt <= if_cnt + 3'(take) - 3'(vid_rvalid && vid_rlast);
+            if_cnt <= if_cnt + {{FW{1'b0}}, take} - {{FW{1'b0}}, vid_rvalid && vid_rlast};
         end
     end
 

@@ -303,18 +303,18 @@ module sdram_arbiter #(
     end
 
     // VID: several reads may be in flight; their words come back in order.
-    logic [15:0] vq_t0  [4];     // when the read became urgent
-    logic        vq_u   [4];     // ...if it ever did
-    logic [15:0] vq_dl  [4];
-    logic [1:0]  vq_wr, vq_rd;
+    logic [15:0] vq_t0  [8];     // when the read became urgent
+    logic        vq_u   [8];     // ...if it ever did
+    logic [15:0] vq_dl  [8];
+    logic [2:0]  vq_wr, vq_rd;
     logic        vid_first;      // the next VID word is the first of its read
     logic        vid_waiting;    // the current request has become urgent
     logic [15:0] vid_t0;
 
     always_ff @(posedge clk) begin
         if (reset) begin
-            vq_wr         <= 2'd0;
-            vq_rd         <= 2'd0;
+            vq_wr         <= 3'd0;
+            vq_rd         <= 3'd0;
             vid_first     <= 1'b1;
             vid_waiting   <= 1'b0;
             vid_t0        <= 16'd0;
@@ -326,7 +326,7 @@ module sdram_arbiter #(
                 vq_t0[vq_wr] <= vid_waiting ? vid_t0 : now;
                 vq_u[vq_wr]  <= vid_waiting | vid_urgent;
                 vq_dl[vq_wr] <= now + vid_deadline;
-                vq_wr        <= vq_wr + 2'd1;
+                vq_wr        <= vq_wr + 3'd1;
                 vid_waiting  <= 1'b0;
             end
             else if (vid_urgent && !vid_waiting) begin
@@ -341,7 +341,7 @@ module sdram_arbiter #(
                 if (rd_last) begin
                     if ($signed(now - vq_dl[vq_rd]) > 0)
                         vid_underruns <= vid_underruns + 16'd1;
-                    vq_rd <= vq_rd + 2'd1;
+                    vq_rd <= vq_rd + 3'd1;
                 end
             end
         end

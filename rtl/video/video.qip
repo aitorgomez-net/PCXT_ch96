@@ -3,6 +3,7 @@ set_global_assignment -name VERILOG_FILE [file join $::quartus(qip_path) hgc_seq
 set_global_assignment -name VERILOG_FILE [file join $::quartus(qip_path) hgc_pixel.v ]
 set_global_assignment -name VERILOG_FILE [file join $::quartus(qip_path) hgc_attrib.v ]
 set_global_assignment -name VERILOG_FILE [file join $::quartus(qip_path) hgc.v ]
+set_global_assignment -name SYSTEMVERILOG_FILE [file join $::quartus(qip_path) crtc_delay.sv ]
 set_global_assignment -name SYSTEMVERILOG_FILE [file join $::quartus(qip_path) crtc_vram_if.sv ]
 set_global_assignment -name SYSTEMVERILOG_FILE [file join $::quartus(qip_path) cga_vram_if.sv ]
 set_global_assignment -name SYSTEMVERILOG_FILE [file join $::quartus(qip_path) hgc_vram_if.sv ]

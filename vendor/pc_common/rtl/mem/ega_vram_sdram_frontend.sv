@@ -44,6 +44,8 @@ module ega_vram_sdram_frontend #(
     parameter int LEAD_GLYPH  = 10,    // dots, glyph request -> answer
     parameter int DOT_SDRAM   = 7,     // sdram clocks in the shortest dot, for deadlines
     parameter int MAIN_DEPTH  = 4,     // entries of the main engine (>= requests in flight + 1)
+    parameter int GLYPH_DEPTH = 4,     // entries of the glyph engine (>= requests in flight + 1)
+    parameter int MAX_INFLIGHT = 4,    // reads in flight per engine and in total (4 or 8)
     parameter int SYNC        = 2
 ) (
     // ---------------- CPU side
@@ -402,7 +404,7 @@ module ega_vram_sdram_frontend #(
 
     // Cells and graphics: one request in flight per character or block, at most
     // one per video clock.
-    vram_fetch_x #(.DEPTH(MAIN_DEPTH), .MAX_WORDS(2), .SYNC_STAGES(SYNC)) u_fetch_main (
+    vram_fetch_x #(.DEPTH(MAIN_DEPTH), .MAX_WORDS(2), .SYNC_STAGES(SYNC), .MAX_INFLIGHT(MAX_INFLIGHT)) u_fetch_main (
         .clk_v(clk_video), .reset_v(reset_video),
         .rq_valid(mf_rq_valid), .rq_addr(mf_rq_addr), .rq_len(mf_rq_len), .rq_deadline(mf_rq_dl),
         .pop(mf_pop), .flush(mode_flush), .hd_valid(mf_hd_valid), .hd_data(mf_hd_data),
@@ -415,7 +417,7 @@ module ega_vram_sdram_frontend #(
     );
 
     // Glyph rows of text
-    vram_fetch_x #(.DEPTH(4), .MAX_WORDS(1), .SYNC_STAGES(SYNC)) u_fetch_glyph (
+    vram_fetch_x #(.DEPTH(GLYPH_DEPTH), .MAX_WORDS(1), .SYNC_STAGES(SYNC), .MAX_INFLIGHT(MAX_INFLIGHT)) u_fetch_glyph (
         .clk_v(clk_video), .reset_v(reset_video),
         .rq_valid(gf_rq_valid), .rq_addr(gf_rq_addr), .rq_len(LEN_1), .rq_deadline(gf_rq_dl),
         .pop(gf_pop), .flush(mode_flush), .hd_valid(gf_hd_valid), .hd_data(gf_hd_data),
@@ -427,7 +429,7 @@ module ega_vram_sdram_frontend #(
         .underrun_count(gf_ur), .occupancy(gf_occ)
     );
 
-    vid_mux #(.N(2)) u_vid_mux (
+    vid_mux #(.N(2), .MAX_INFLIGHT(MAX_INFLIGHT)) u_vid_mux (
         .clk(sdram_clk), .reset(sdram_reset),
         .c_req({gf_c_req, mf_c_req}),
         .c_addr({gf_c_addr, mf_c_addr}),

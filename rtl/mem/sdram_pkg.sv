@@ -72,4 +72,57 @@ package sdram_pkg;
     localparam logic [1:0] TAG_LDR = 2'd2;
     localparam logic [1:0] TAG_AUX = 2'd3;
 
+    // Lead of the CGA and HGC video fetch (crtc_delay.sv). Each card draws
+    // this many of its clocks behind its CRTC, so every word is asked for
+    // that much earlier than it is needed. With the SDRAM one character of
+    // lead is plenty: no delay. The DDR3 of the Chameleon96 is shared with
+    // the scaler and Linux and its latency sometimes exceeds one character,
+    // which shows up as wrong glyphs in text modes: there the CGA draws 64
+    // clocks behind (4 characters in 80 columns, 2 in 40) and the HGC 5
+    // characters in text and 3 in graphics. The fetch queues hold the words
+    // of the characters in between, plus the one being sampled and the next.
+`ifdef MISTER_CHAMELEON96
+    localparam int CGA_FETCH_DELAY      = 64;   // clocks of 28.636 MHz, multiple of 32
+    localparam int HGC_FETCH_DELAY_TEXT = 90;   // clocks of 57.27 MHz, multiple of 18
+    localparam int HGC_FETCH_DELAY_GRPH = 96;   // clocks of 57.27 MHz, multiple of 32
+    localparam int CGA_FETCH_DEPTH      = 7;    // >= 2 + CGA_FETCH_DELAY / 16, one spare
+    localparam int HGC_FETCH_DEPTH      = 8;    // >= 2 + max(TEXT / 18, GRPH / 32), one spare
+`else
+    localparam int CGA_FETCH_DELAY      = 0;
+    localparam int HGC_FETCH_DELAY_TEXT = 0;
+    localparam int HGC_FETCH_DELAY_GRPH = 0;
+    localparam int CGA_FETCH_DEPTH      = 3;
+    localparam int HGC_FETCH_DEPTH      = 3;
+`endif
+
+    // Lead of the EGA video fetch, in dots (ega_vram_sdram_frontend): graphics
+    // reads, text cell reads and the glyph reads chained to them. ega_top is
+    // retimed by EGA_LEAD_GFX (SDRAM_LEAD_DOTS); the text path has to come to
+    // the same, which is EGA_LEAD_CELL + EGA_LEAD_GLYPH = EGA_LEAD_GFX + 3.
+    // The engines hold the requests in flight (about one per 8 dots) plus one.
+    //
+    // VID_MAX_INFLIGHT: video reads sent and not yet answered, per engine and
+    // in each vid_mux. A long lead is only worth it if the reads can be in
+    // flight together: with the DDR3 a read can take 1.5 us, and CGA, HGC and
+    // EGA together ask for one every 20-30 clocks.
+`ifdef MISTER_CHAMELEON96
+    localparam int VID_MAX_INFLIGHT     = 8;
+`else
+    localparam int VID_MAX_INFLIGHT     = 4;
+`endif
+
+`ifdef MISTER_CHAMELEON96
+    localparam int EGA_LEAD_GFX         = 56;
+    localparam int EGA_LEAD_CELL        = 29;
+    localparam int EGA_LEAD_GLYPH       = 30;
+    localparam int EGA_MAIN_DEPTH       = 8;
+    localparam int EGA_GLYPH_DEPTH      = 6;
+`else
+    localparam int EGA_LEAD_GFX         = 16;
+    localparam int EGA_LEAD_CELL        = 9;
+    localparam int EGA_LEAD_GLYPH       = 10;
+    localparam int EGA_MAIN_DEPTH       = 4;
+    localparam int EGA_GLYPH_DEPTH      = 4;
+`endif
+
 endpackage

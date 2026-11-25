@@ -33,7 +33,7 @@ LOADER="$MEM/rom_loader.sv"
 VFETCH="$MEM/vram_fetch.sv $MEM/vid_mux.sv"
 RCLEAR="$MEM/ram_clear.sv"
 VID="$ROOT/rtl/video"
-VCARDS="$VID/UM6845R_cga.v $VID/cga.v $VID/cga_sequencer.v $VID/cga_pixel.sv $VID/cga_attrib.v $VID/cga_splash_renderer.v $VID/video_scandoubler_cga.v $ROOT/rtl/common/jtframe_dual_ram.v $VID/hgc.v $VID/hgc_sequencer.v $VID/hgc_pixel.v $VID/hgc_attrib.v $VID/crtc_vram_if.sv $VID/cga_vram_if.sv $VID/hgc_vram_if.sv $VID/vram.v"
+VCARDS="$VID/UM6845R_cga.v $VID/cga.v $VID/cga_sequencer.v $VID/cga_pixel.sv $VID/cga_attrib.v $VID/cga_splash_renderer.v $VID/video_scandoubler_cga.v $ROOT/rtl/common/jtframe_dual_ram.v $VID/hgc.v $VID/hgc_sequencer.v $VID/hgc_pixel.v $VID/hgc_attrib.v $VID/crtc_delay.sv $VID/crtc_vram_if.sv $VID/cga_vram_if.sv $VID/hgc_vram_if.sv $VID/vram.v"
 MAPEGA="$MEM/mem_map_ega.sv"
 TXNMUX="$MEM/sdram_txn_mux.sv"
 MODEL="$TB/sdram_model.sv"
@@ -46,7 +46,8 @@ E2E="$PKG $CTRL $ARB $BRIDGE $PORT $MAP $MODEL $CPU $XT $TB/cpu_sdram_e2e_tb.sv"
 DEFS="-DENABLE_CGA=1 -DENABLE_HGC=1 -DENABLE_OPL2=0 -DENABLE_CMS=0 -DENABLE_MIDI=0 -DENABLE_EMS=0"
 INCS="-I$KFXT/KF8237/HDL -I$KFXT/KF8253/HDL -I$KFXT/KF8255/HDL -I$KFXT/KF8259/HDL"
 # Everything the machine is made of, as the qips list it (sys_video_files.lst), plus stubs
-SYSV="$TB/sys_video_stubs.sv $MODEL $(tr -d '' < "$TB/sys_video_files.lst" | sed "s|^|$ROOT/|" | tr '\n' ' ') $TB/sys_video_tb.sv"
+SYSV="$TB/sys_video_stubs.sv $MODEL $(tr -d '
+' < "$TB/sys_video_files.lst" | sed "s|^|$ROOT/|" | tr '\n' ' ') $TB/sys_video_tb.sv"
 
 # name | top module | -G parameters | sources
 BENCHES=(
@@ -94,6 +95,14 @@ BENCHES=(
     "video_chain_tandy_cmp|video_fetch_chain_tb|-GCARD=0 -GTANDY=1 -GCMP=1 -DENABLE_TANDY_VIDEO=1|$PKG $CTRL $ARB $MODEL $VFETCH $VCARDS $TB/video_fetch_chain_tb.sv"
     "video_chain_tandy_busy|video_fetch_chain_tb|-GCARD=0 -GTANDY=1 -GWR_GAP=2 -GTARGET=1 -GPHASES=5 -DENABLE_TANDY_VIDEO=1|$PKG $CTRL $ARB $MODEL $VFETCH $VCARDS $TB/video_fetch_chain_tb.sv"
     "video_chain_hgc_busy|video_fetch_chain_tb|-GCARD=1 -GWR_GAP=2 -GTARGET=1 -GPHASES=2|$PKG $CTRL $ARB $MODEL $VFETCH $VCARDS $TB/video_fetch_chain_tb.sv"
+    # The Chameleon96 lead (the cards draw behind their CRTC, sdram_pkg) under the
+    # latency of a shared DDR3: 20..30 clocks per read and, in 5 % of the reads,
+    # 150 more (1.3 us). Without the lead (FDELAY=0) these lose bytes.
+    "video_chain_cga_lead|video_fetch_chain_tb|-GCARD=0 -GFDELAY=1 -GLAT=20 -GJIT=10 -GSPIKE_PCT=5 -GSPIKE=150|$PKG $CTRL $ARB $MODEL $VFETCH $VCARDS $TB/video_fetch_chain_tb.sv"
+    "video_chain_hgc_lead|video_fetch_chain_tb|-GCARD=1 -GFDELAY=1 -GLAT=20 -GJIT=10 -GSPIKE_PCT=5 -GSPIKE=150|$PKG $CTRL $ARB $MODEL $VFETCH $VCARDS $TB/video_fetch_chain_tb.sv"
+    "video_chain_cga_lead_cmp|video_fetch_chain_tb|-GCARD=0 -GCMP=1 -GFDELAY=1 -GLAT=20 -GJIT=10 -GSPIKE_PCT=5 -GSPIKE=150|$PKG $CTRL $ARB $MODEL $VFETCH $VCARDS $TB/video_fetch_chain_tb.sv"
+    "video_chain_hgc_lead_cmp|video_fetch_chain_tb|-GCARD=1 -GCMP=1 -GFDELAY=1 -GLAT=20 -GJIT=10 -GSPIKE_PCT=5 -GSPIKE=150|$PKG $CTRL $ARB $MODEL $VFETCH $VCARDS $TB/video_fetch_chain_tb.sv"
+    "video_chain_tandy_lead|video_fetch_chain_tb|-GCARD=0 -GTANDY=1 -GFDELAY=1 -GLAT=20 -GJIT=10 -GSPIKE_PCT=5 -GSPIKE=150 -DENABLE_TANDY_VIDEO=1|$PKG $CTRL $ARB $MODEL $VFETCH $VCARDS $TB/video_fetch_chain_tb.sv"
     # The whole machine around the video memory: CPU program, chipset, CGA, HGC, SDRAM.
     "sys_video_4_77|sys_video_tb|-GSPEED=0|$SYSV"
     "sys_video_7_16|sys_video_tb|-GSPEED=1|$SYSV"

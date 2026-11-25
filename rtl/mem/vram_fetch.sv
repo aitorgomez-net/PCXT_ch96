@@ -23,7 +23,10 @@
 //
 module vram_fetch #(
     parameter int DEPTH     = 4,    // entries, 2..8
-    parameter int MAX_WORDS = 1     // 1, 2 or 4 words per entry
+    parameter int MAX_WORDS = 1,    // 1, 2 or 4 words per entry
+    // Reads sent to the arbiter whose words have not all come back: 4 or 8
+    // (a power of 2). More pays off on a memory with a long latency.
+    parameter int MAX_INFLIGHT = 4
 ) (
     input  logic        clk,
     input  logic        reset,
@@ -70,7 +73,7 @@ module vram_fetch #(
     localparam int IW           = (DEPTH > 1) ? $clog2(DEPTH) : 1;
     localparam int DW           = 16 * MAX_WORDS;
     localparam int MW           = 2 * MAX_WORDS;
-    localparam int MAX_INFLIGHT = 4;
+    localparam int FW           = $clog2(MAX_INFLIGHT);
 
     // ------------------------------------------------------------------
     // State
@@ -108,10 +111,10 @@ module vram_fetch #(
 
     // Accepted reads whose words are still to come, in order.
     logic [IW-1:0]   if_q [MAX_INFLIGHT];
-    logic [1:0]      if_rd, if_wr;
-    logic [2:0]      if_cnt;
-    logic [1:0]      n_if_rd, n_if_wr;
-    logic [2:0]      n_if_cnt;
+    logic [FW-1:0]   if_rd, if_wr;
+    logic [FW:0]     if_cnt;
+    logic [FW-1:0]   n_if_rd, n_if_wr;
+    logic [FW:0]     n_if_cnt;
     logic [1:0]      beat, n_beat;
 
     logic [15:0]     n_underrun;
@@ -192,7 +195,7 @@ module vram_fetch #(
     assign req_ready = !e_v[wr_ptr] && !flush;
 
     wire snd_here = (snd_cnt != 4'd0) && e_v[snd_ptr] && !e_sent[snd_ptr] && !e_skip[snd_ptr];
-    assign vid_req      = snd_here && (if_cnt < 3'(MAX_INFLIGHT));
+    assign vid_req      = snd_here && (if_cnt < MAX_INFLIGHT);
     assign vid_addr     = e_addr[snd_ptr];
     assign vid_len      = e_len[snd_ptr];
     assign vid_deadline = e_dl[snd_ptr];
@@ -309,8 +312,8 @@ module vram_fetch #(
             n_sent[snd_ptr] = 1'b1;
             n_snd_ptr       = inc(snd_ptr);
             n_snd_cnt       = n_snd_cnt - 4'd1;
-            n_if_wr         = if_wr + 2'd1;
-            n_if_cnt        = n_if_cnt + 3'd1;
+            n_if_wr         = if_wr + 1'b1;
+            n_if_cnt        = n_if_cnt + 1'b1;
         end
         else if ((snd_cnt != 4'd0) && (!e_v[snd_ptr] || e_skip[snd_ptr])) begin
             n_snd_ptr = inc(snd_ptr);
@@ -318,15 +321,15 @@ module vram_fetch #(
         end
 
         // --- words coming back ---
-        if (vid_rvalid && (if_cnt != 3'd0)) begin
+        if (vid_rvalid && (if_cnt != '0)) begin
             bi = if_q[if_rd];
             if ({1'b0, beat} < 3'(MAX_WORDS)) begin
                 n_data[bi][16*beat +: 16] = vid_rdata;
             end
             if (vid_rlast) begin
                 n_done[bi] = 1'b1;
-                n_if_rd    = if_rd + 2'd1;
-                n_if_cnt   = n_if_cnt - 3'd1;
+                n_if_rd    = if_rd + 1'b1;
+                n_if_cnt   = n_if_cnt - 1'b1;
                 n_beat     = 2'd0;
             end
             else
@@ -395,9 +398,9 @@ module vram_fetch #(
             occ      <= 4'd0;
             snd_cnt  <= 4'd0;
             cons_cnt <= 4'd0;
-            if_rd    <= 2'd0;
-            if_wr    <= 2'd0;
-            if_cnt   <= 3'd0;
+            if_rd    <= '0;
+            if_wr    <= '0;
+            if_cnt   <= '0;
             beat     <= 2'd0;
             underrun_count <= 16'd0;
             h_valid  <= 1'b0;

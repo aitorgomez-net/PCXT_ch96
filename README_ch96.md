@@ -56,6 +56,26 @@ Output: `output_files/PCXT_ch96.rbf`. Release name: `releases/PCXT_AAAAMMDD_ch96
 
 With the 350-line conversion off, the `DDRAM_*` port is free for the core RAM.
 
+### Video fetch lead
+
+The DDR3 is shared with the scaler and Linux, and a read sometimes takes longer than the
+one character of lead the video fetch had with the SDRAM: in text modes a late word shows
+up as a stray glyph (dots, dashes, bullets). On this board the cards ask for their words
+further ahead (`sdram_pkg`, under `MISTER_CHAMELEON96`):
+
+| Card | How | Lead per read |
+|---|---|---|
+| CGA | draws 64 clocks behind its CRTC (`crtc_delay.sv`) | 5 characters in 80 columns (2.8 us), 3 in 40 |
+| HGC/MDA | 5 characters behind in text, 3 in graphics | 6 characters in text (1.9 us), 4 in graphics (2.2 us) |
+| EGA | `SDRAM_LEAD_DOTS` 56, cell 29 + glyph 30 dots | 1.8 us per text read, 3.4 us in graphics |
+
+Up to 8 video reads may be in flight at once (4 with the SDRAM), and the DDR3 controller
+keeps 16.
+
+The picture only moves as a whole (syncs and blanking are delayed with it). The
+DE10-Nano build keeps the old values. Benches: `video_chain_*_lead` in
+`rtl/mem/TESTBENCH/run_tests.sh` (latency spikes of 1.3 us in 5 % of the reads).
+
 ## DDR3 map
 
 Linux owns `0x00000000-0x0FFFFFFF`; the device tree reserves `0x10000000-0x1FFFFFFF`
@@ -66,8 +86,8 @@ x86 share poll at `0x100CE000`).
 
 ## To do (port)
 
-1. ~~`platform/ch96/ddram_ctrl.sv`: DDR3 backend for `sdram_arbiter`.~~ Done; check on the
-   board that the video fetch engines meet their deadlines with the DDR3 latency.
+1. ~~`platform/ch96/ddram_ctrl.sv`: DDR3 backend for `sdram_arbiter`.~~ Done. With one
+   character of lead some text reads were late; see "Video fetch lead".
 2. If they do not: video memory (CGA/HGC/EGA) back to BRAM, with a BRAM mirror of the Tandy/PCjr video RAM
    fed by the write snoop, so video never waits on DDR3 latency.
 3. OSD: hide USER I/O and MT32-pi on this board (no user port), as PCAT-286 does.

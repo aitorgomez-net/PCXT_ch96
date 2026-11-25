@@ -18,11 +18,16 @@
 //   ev_att  the attribute byte is sampled now (vram_d <= high byte)
 //   ev_pop  the word is not needed any more (always together with an ev_att)
 //
-// If the queue is empty at ev_req (start-up, or after a mismatch the engine
-// lost track of) the word of the current character cannot be there: the turn
-// is skipped ("prime") and the next one is in step.
+// The card may draw some characters behind its CRTC (crtc_delay.sv): the
+// words of those characters have already been asked for and are still in
+// the queue. in_step is the number of words the queue holds at ev_req when
+// everything is in step: the characters the card is behind, plus the one it
+// samples now. Without a delay line it is 1.
 //
-// In step the queue holds exactly one word at ev_req, the current character's.
+// If the queue holds fewer at ev_req (start-up, or after a request the engine
+// could not take) the word of the current character cannot be there: the turn
+// is skipped ("prime"), the queue grows by one, and so on until it is in step.
+//
 // More means it still holds words of characters already gone: a reset of the
 // card, or a change of the 40/80-column timing, between the request of a word
 // and its pop. The display would then stay that many characters to the right,
@@ -41,6 +46,7 @@ module crtc_vram_if (
     input  logic [23:0] cur_addr,       // word the CRTC is addressing now
     input  logic [23:0] next_addr,      // word it will address at the next character
     input  logic [15:0] deadline,       // clk_sdram cycles from ev_req to ev_pop of that word
+    input  logic [3:0]  in_step,        // words queued at ev_req when in step (1 + delay in characters)
 
     output logic [7:0]  vram_d,         // the byte the adapter sees as RAM data
 
@@ -93,10 +99,10 @@ module crtc_vram_if (
                 req_pend <= 1'b0;
 
             queued <= queued + {3'd0, req_pend && req_ready} - {3'd0, rsp_pop};
-            trim   <= ev_req && (queued > 4'd1);
+            trim   <= ev_req && (queued > in_step);
 
             if (ev_req) begin
-                prime <= !rsp_pending;
+                prime <= !rsp_pending || (queued < in_step);
                 if (req_pend && !req_ready && dropped_count != 16'hFFFF)
                     dropped_count <= dropped_count + 16'd1;
                 req_pend   <= 1'b1;

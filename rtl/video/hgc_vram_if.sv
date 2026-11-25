@@ -24,7 +24,13 @@
 // the word address.
 //
 module hgc_vram_if #(
-    parameter logic [23:0] BASE = 24'h043_0000      // word address of the HGC region (64 KiB)
+    parameter logic [23:0] BASE = 24'h043_0000,     // word address of the HGC region (64 KiB)
+    // FETCH_DELAY_* of the card (hgc.v): clocks of 57.27 MHz by which it
+    // draws behind its CRTC, a multiple of 18 in text and of 32 in graphics.
+    // The words are asked for that much earlier and that many more of them
+    // wait in the queue.
+    parameter int          FETCH_DELAY_TEXT = 0,
+    parameter int          FETCH_DELAY_GRPH = 0
 ) (
     input  logic        clk,                // clk_sdram
     input  logic        reset,
@@ -82,7 +88,16 @@ module hgc_vram_if #(
     // From the request to the first byte of that word, in clk_sdram cycles (two
     // per slot): graphics from slot 2 to slot 1 of the next character, 31
     // slots; text 18 slots.
-    wire [15:0] deadline = grph_s ? 16'd62 : 16'd36;
+    // Plus the delay of the card, two clk_sdram per clock of the card.
+    localparam logic [15:0] DL_TEXT = 16'(36 + 2 * FETCH_DELAY_TEXT);
+    localparam logic [15:0] DL_GRPH = 16'(62 + 2 * FETCH_DELAY_GRPH);
+    wire [15:0] deadline = grph_s ? DL_GRPH : DL_TEXT;
+
+    // Words in the queue at ev_req: the characters the card is behind, plus
+    // the one it samples now
+    localparam logic [3:0] STEP_TEXT = 4'(1 + FETCH_DELAY_TEXT / 18);
+    localparam logic [3:0] STEP_GRPH = 4'(1 + FETCH_DELAY_GRPH / 32);
+    wire [3:0] in_step = grph_s ? STEP_GRPH : STEP_TEXT;
 
     wire [23:0] cur_addr  = BASE + {9'd0, page_s, cur_s};
     wire [23:0] next_addr = BASE + {9'd0, page_s, nxt_s};
@@ -96,7 +111,7 @@ module hgc_vram_if #(
     crtc_vram_if u_if (
         .clk(clk), .reset(reset),
         .ev_req(ev_req), .ev_chr(ev_chr), .ev_att(ev_att), .ev_pop(ev_pop),
-        .cur_addr(cur_addr), .next_addr(next_addr), .deadline(deadline),
+        .cur_addr(cur_addr), .next_addr(next_addr), .deadline(deadline), .in_step(in_step),
         .vram_d(vram_d),
         .req_valid(req_valid), .req_addr(req_addr), .req_len(req_len),
         .req_deadline(req_deadline), .req_ready(req_ready),

@@ -51,6 +51,12 @@ module hgc(
 
     parameter HGC_70HZ = 1;
     parameter BLINK_MAX = 0;
+    // Clocks by which everything the card draws lags the CRTC, so that the
+    // video fetch engine can be asked for each word that much earlier (see
+    // crtc_delay.sv). 0: no delay line, as before. Otherwise a whole number of
+    // characters: a multiple of 18 in text, of 32 in graphics.
+    parameter FETCH_DELAY_TEXT = 0;
+    parameter FETCH_DELAY_GRPH = 0;
     localparam STD_HSYNCWIDTH = 4'd15;
 
     parameter IO_BASE_ADDR = 16'h3b0; // HGC is 3B0, CGA is 3D0
@@ -80,6 +86,10 @@ module hgc(
     wire[4:0] row_addr;
     wire[13:0] crtc_addr_next;
     wire[4:0] row_addr_next;
+    // The CRTC outputs as they come out of it (see FETCH_DELAY_*)
+    wire hblank_c, vblank_c, vsync_l_c, hsync_int_c, display_enable_c, cursor_c;
+    wire[13:0] crtc_addr_c;
+    wire[4:0] row_addr_c;
 
     wire charrom_read;
     wire disp_pipeline;
@@ -205,17 +215,17 @@ module hgc(
 		  .DI(bus_d),
 		  .DO(bus_out_crtc),
 		  
-		  .hblank(hblank),
-		  .vblank(vblank),
+		  .hblank(hblank_c),
+		  .vblank(vblank_c),
 		  
-		  .VSYNC(vsync_l),
-		  .HSYNC(hsync_int),
-		  .DE(display_enable),
+		  .VSYNC(vsync_l_c),
+		  .HSYNC(hsync_int_c),
+		  .DE(display_enable_c),
 		  // .FIELD(),
-		  .CURSOR(cursor),
+		  .CURSOR(cursor_c),
 		  
-		  .MA(crtc_addr),
-		  .RA(row_addr),
+		  .MA(crtc_addr_c),
+		  .RA(row_addr_c),
 		  .MA_NEXT(crtc_addr_next),
 		  .RA_NEXT(row_addr_next),
 		  .hsync_width(hsync_width_crtc),
@@ -223,6 +233,22 @@ module hgc(
 
 	 );
 	 
+    // What the card draws from: the CRTC outputs, FETCH_DELAY_* clocks late.
+    // The fetch requests (fx_next_word) use the undelayed MA_NEXT/RA_NEXT.
+    generate
+    if (FETCH_DELAY_TEXT == 0 && FETCH_DELAY_GRPH == 0) begin : g_no_crtc_delay
+        assign {hblank, vblank, vsync_l, hsync_int, display_enable, cursor, crtc_addr, row_addr} =
+               {hblank_c, vblank_c, vsync_l_c, hsync_int_c, display_enable_c, cursor_c, crtc_addr_c, row_addr_c};
+    end else begin : g_crtc_delay
+        crtc_delay #(.W(25), .AW(7)) u_crtc_delay (
+            .clk(clk),
+            .len(grph_mode ? FETCH_DELAY_GRPH : FETCH_DELAY_TEXT),
+            .d({hblank_c, vblank_c, vsync_l_c, hsync_int_c, display_enable_c, cursor_c, crtc_addr_c, row_addr_c}),
+            .q({hblank, vblank, vsync_l, hsync_int, display_enable, cursor, crtc_addr, row_addr})
+        );
+    end
+    endgenerate
+
 //    if (HGC_70HZ) begin
         defparam crtc.H_TOTAL = 8'd99;
         defparam crtc.H_DISP = 8'd80;

@@ -15,6 +15,7 @@ rtl/video/hgc_sequencer.v
 rtl/video/hgc_pixel.v
 rtl/video/hgc_attrib.v
 rtl/video/hgc.v
+rtl/video/crtc_delay.sv
 rtl/video/crtc_vram_if.sv
 rtl/video/cga_vram_if.sv
 rtl/video/hgc_vram_if.sv

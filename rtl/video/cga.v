@@ -108,6 +108,11 @@ module cga(
 
     parameter MDA_70HZ = 0;
     parameter BLINK_MAX = 0;
+    // Clocks by which everything the card draws lags the CRTC, so that the
+    // video fetch engine can be asked for each word that much earlier (see
+    // crtc_delay.sv). 0: no delay line, as before. Otherwise a multiple of 32
+    // (one sequencer cycle: one character in 40 columns, two in 80).
+    parameter FETCH_DELAY = 0;
     // `define CGA_SNOW = 1; No snow
 
     parameter USE_BUS_WAIT = 0; // Should we add wait states on the ISA bus?
@@ -205,6 +210,11 @@ module cga(
     wire[4:0] row_addr;
     wire[13:0] crtc_addr_next;
     wire[4:0] row_addr_next;
+    // The CRTC outputs as they come out of it (see FETCH_DELAY)
+    wire hblank_c, vblank_c, vsync_l_c, hsync_int_c, hsync_ref_c, vsync_ref_c;
+    wire display_enable_c, cursor_c, composite_phase_c;
+    wire[13:0] crtc_addr_c;
+    wire[4:0] row_addr_c;
     wire pixel_addr13;
     wire pixel_addr14;
 
@@ -437,24 +447,24 @@ module cga(
 		  .DI(bus_d),
 		  .DO(bus_out_crtc),
 		  
-		  .hblank(hblank_crtc),
-		  .vblank(vblank_crtc),
+		  .hblank(hblank_c),
+		  .vblank(vblank_c),
 		  .line_reset(),
 		  
-		  .VSYNC(vsync_l),
-		  .HSYNC(hsync_int),
-		  .HSYNC_REF(hsync_ref),
-		  .VSYNC_REF(vsync_ref),
-		  .DE(display_enable),
+		  .VSYNC(vsync_l_c),
+		  .HSYNC(hsync_int_c),
+		  .HSYNC_REF(hsync_ref_c),
+		  .VSYNC_REF(vsync_ref_c),
+		  .DE(display_enable_c),
 		  // .FIELD(),
-		  .CURSOR(cursor),
+		  .CURSOR(cursor_c),
 		  
-		  .MA(crtc_addr),
-		  .RA(row_addr),
+		  .MA(crtc_addr_c),
+		  .RA(row_addr_c),
 		  .MA_NEXT(crtc_addr_next),
 		  .RA_NEXT(row_addr_next),
 		  .hsync_width(hsync_width_crtc),
-		  .composite_phase(composite_phase_crtc),
+		  .composite_phase(composite_phase_c),
 		  
 		  .crt_h_offset(crt_h_offset),
 		  .crt_v_offset(crt_v_offset),
@@ -463,6 +473,26 @@ module cga(
 			  .hres_mode(crtc_2x),
 			  .frame_stack_rebuild(frame_stack_sync[1])
 		 );
+
+    // What the card draws from: the CRTC outputs, FETCH_DELAY clocks late.
+    // The fetch requests (fx_next_word) use the undelayed MA_NEXT/RA_NEXT.
+    generate
+    if (FETCH_DELAY == 0) begin : g_no_crtc_delay
+        assign {hblank_crtc, vblank_crtc, vsync_l, hsync_int, hsync_ref, vsync_ref,
+                display_enable, cursor, composite_phase_crtc, crtc_addr, row_addr} =
+               {hblank_c, vblank_c, vsync_l_c, hsync_int_c, hsync_ref_c, vsync_ref_c,
+                display_enable_c, cursor_c, composite_phase_c, crtc_addr_c, row_addr_c};
+    end else begin : g_crtc_delay
+        crtc_delay #(.W(28), .AW(7)) u_crtc_delay (
+            .clk(clk),
+            .len(FETCH_DELAY),
+            .d({hblank_c, vblank_c, vsync_l_c, hsync_int_c, hsync_ref_c, vsync_ref_c,
+                display_enable_c, cursor_c, composite_phase_c, crtc_addr_c, row_addr_c}),
+            .q({hblank_crtc, vblank_crtc, vsync_l, hsync_int, hsync_ref, vsync_ref,
+                display_enable, cursor, composite_phase_crtc, crtc_addr, row_addr})
+        );
+    end
+    endgenerate
 
     // CGA 80 column timings
     defparam crtc.H_TOTAL = 8'd113; // 113 // 56

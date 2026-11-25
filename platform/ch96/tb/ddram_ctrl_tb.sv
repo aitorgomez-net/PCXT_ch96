@@ -1,13 +1,13 @@
 // Random-operation test of ddram_ctrl against an in-order Avalon model.
 // iverilog -g2012 ../../../rtl/mem/sdram_pkg.sv ../ddram_ctrl.sv ddram_ctrl_tb.sv && vvp a.out
 `timescale 1ns/1ps
-module tb;
+module tb #(parameter int MAXQ = 8);
   logic clk=0, reset=1; always #4 clk=~clk;
   logic init_done, op_valid=0, op_ref=0, op_we=0; logic [23:0] op_addr=0; logic [1:0] op_len=0;
   logic [63:0] op_wdata=0; logic [7:0] op_wbe=0; logic [1:0] op_tag=0; wire op_issue; wire [3:0] bank_idle;
   wire rd_valid, rd_last; wire [15:0] rd_data; wire [1:0] rd_tag;
   logic busy; wire [7:0] bc; wire [28:0] aa; logic [63:0] dout; logic dready; wire rd, we; wire [63:0] din; wire [7:0] be;
-  ddram_ctrl #(.BASE(32'h11000000)) dut(.clk, .reset, .init_done, .op_valid, .op_ref, .op_we, .op_addr, .op_len,
+  ddram_ctrl #(.BASE(32'h11000000), .MAXQ(MAXQ)) dut(.clk, .reset, .init_done, .op_valid, .op_ref, .op_we, .op_addr, .op_len,
     .op_wdata, .op_wbe, .op_tag, .op_issue, .bank_idle, .rd_valid, .rd_data, .rd_tag, .rd_last,
     .ddram_busy(busy), .ddram_burstcnt(bc), .ddram_addr(aa), .ddram_dout(dout), .ddram_dout_ready(dready),
     .ddram_rd(rd), .ddram_din(din), .ddram_be(be), .ddram_we(we));

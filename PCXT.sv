@@ -1426,7 +1426,7 @@ module emu
         wire [63:0] cga_rsp_d;
         wire [15:0] cga_underrun, cga_mismatch, cga_late, cga_dropped;
 
-        vram_fetch #(.DEPTH(3), .MAX_WORDS(1)) u_cga_fetch
+        vram_fetch #(.DEPTH(sdram_pkg::CGA_FETCH_DEPTH), .MAX_WORDS(1), .MAX_INFLIGHT(sdram_pkg::VID_MAX_INFLIGHT)) u_cga_fetch
         (
             .clk(clk_sdram), .reset(vid_reset),
             .req_valid(cga_req_v), .req_addr(cga_req_a), .req_len(cga_req_l),
@@ -1441,7 +1441,7 @@ module emu
             .underrun_count(cga_underrun), .occupancy()
         );
 
-        cga_vram_if #(.BASE(CGA_WORD_BASE)) u_cga_vif
+        cga_vram_if #(.BASE(CGA_WORD_BASE), .FETCH_DELAY(sdram_pkg::CGA_FETCH_DELAY)) u_cga_vif
         (
             .clk(clk_sdram), .reset(vid_reset),
             .seq_phase(fx_cga_phase), .hres(fx_cga_hres),
@@ -1474,7 +1474,7 @@ module emu
         wire [63:0] hgc_rsp_d;
         wire [15:0] hgc_underrun, hgc_mismatch, hgc_late, hgc_dropped;
 
-        vram_fetch #(.DEPTH(3), .MAX_WORDS(1)) u_hgc_fetch
+        vram_fetch #(.DEPTH(sdram_pkg::HGC_FETCH_DEPTH), .MAX_WORDS(1), .MAX_INFLIGHT(sdram_pkg::VID_MAX_INFLIGHT)) u_hgc_fetch
         (
             .clk(clk_sdram), .reset(vid_reset),
             .req_valid(hgc_req_v), .req_addr(hgc_req_a), .req_len(hgc_req_l),
@@ -1489,7 +1489,9 @@ module emu
             .underrun_count(hgc_underrun), .occupancy()
         );
 
-        hgc_vram_if #(.BASE(HGC_WORD_BASE)) u_hgc_vif
+        hgc_vram_if #(.BASE(HGC_WORD_BASE),
+                      .FETCH_DELAY_TEXT(sdram_pkg::HGC_FETCH_DELAY_TEXT),
+                      .FETCH_DELAY_GRPH(sdram_pkg::HGC_FETCH_DELAY_GRPH)) u_hgc_vif
         (
             .clk(clk_sdram), .reset(vid_reset),
             .seq_phase(fx_hgc_phase), .grph(fx_hgc_grph), .page(fx_hgc_page),
@@ -1520,7 +1522,7 @@ module emu
     generate
     if (N_VID == 3) begin : g_vid_mux3
         wire [2:0] mx_ack, mx_rvalid, mx_rlast;
-        vid_mux #(.N(3)) u_vid_mux
+        vid_mux #(.N(3), .MAX_INFLIGHT(sdram_pkg::VID_MAX_INFLIGHT)) u_vid_mux
         (
             .clk(clk_sdram), .reset(vid_reset),
             .c_req({egaf_req, hgc_vreq, cga_vreq}), .c_addr({egaf_addr, hgc_vaddr, cga_vaddr}),
@@ -1538,7 +1540,7 @@ module emu
         wire [1:0] mx_ack, mx_rvalid, mx_rlast;
         wire       first_req  = E_CGA ? cga_vreq : hgc_vreq;
         wire       second_req = E_EGA ? egaf_req : hgc_vreq;
-        vid_mux #(.N(2)) u_vid_mux
+        vid_mux #(.N(2), .MAX_INFLIGHT(sdram_pkg::VID_MAX_INFLIGHT)) u_vid_mux
         (
             .clk(clk_sdram), .reset(vid_reset),
             .c_req({second_req, first_req}),
@@ -1657,7 +1659,7 @@ module emu
     // The DDRAM port is free because the 350-line CRT conversion is off.
     assign DDRAM_CLK = clk_sdram;
 
-    ddram_ctrl #(.BASE(32'h1100_0000)) u_ddram_ctrl
+    ddram_ctrl #(.BASE(32'h1100_0000), .MAXQ(16)) u_ddram_ctrl
     (
         .clk              (clk_sdram),
         .reset            (sd_reset),

@@ -1878,6 +1878,10 @@ end
 
     defparam cga1.BLINK_MAX = 24'd4772727;
     defparam hgc1.BLINK_MAX = 24'd9100000;
+    // Lead of the video fetch: the same values as the adapters in PCXT.sv
+    defparam cga1.FETCH_DELAY      = sdram_pkg::CGA_FETCH_DELAY;
+    defparam hgc1.FETCH_DELAY_TEXT = sdram_pkg::HGC_FETCH_DELAY_TEXT;
+    defparam hgc1.FETCH_DELAY_GRPH = sdram_pkg::HGC_FETCH_DELAY_GRPH;
     // Video memory lives in SDRAM. The CPU's reads and writes go through the
     // memory map and the memory port (mem_map, cpu_mem_port); what the two cards
     // read comes from the video fetch engines at the top level, through the
@@ -2234,7 +2238,7 @@ end
         // The video memory is read ahead of the display (vram_fetch): the
         // display side is retimed to match; the same numbers are given to the
         // frontend below.
-        defparam ega1.SDRAM_LEAD_DOTS  = 16;
+        defparam ega1.SDRAM_LEAD_DOTS  = sdram_pkg::EGA_LEAD_GFX;
 
         // The boot picture of the EGA card is the core's own
         ega_splash_renderer ega_splash_renderer_inst (
@@ -2261,9 +2265,12 @@ end
 
         ega_vram_sdram_frontend
         #(
-            .LEAD_GFX                   (16),
-            .LEAD_CELL                  (9),
-            .LEAD_GLYPH                 (10)
+            .LEAD_GFX                   (sdram_pkg::EGA_LEAD_GFX),
+            .LEAD_CELL                  (sdram_pkg::EGA_LEAD_CELL),
+            .LEAD_GLYPH                 (sdram_pkg::EGA_LEAD_GLYPH),
+            .MAIN_DEPTH                 (sdram_pkg::EGA_MAIN_DEPTH),
+            .GLYPH_DEPTH                (sdram_pkg::EGA_GLYPH_DEPTH),
+            .MAX_INFLIGHT               (sdram_pkg::VID_MAX_INFLIGHT)
         )
         ega_vram_frontend
         (
