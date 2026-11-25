@@ -1,0 +1,113 @@
+            \W██████▙▖   ▗▟███▙▖  ▜██▌  ▟██▌▐████████▌
+            \W████████  ▗███████▖ ▝███ ▗██▛ ▐████████▌
+            \W███  ███  ███▀ ▝██▙  ▜██▌███▘    ▐██▌
+            \W███  ███ ▗███   ▀▘    █████▛     ▐██▌
+            \W███████▛ ▐██▌         ▐████      ▐██▌
+            \W██████▛  ▐██▌         ▟████▖     ▐██▌
+            \W███      ▝███   ▟▙▄  ▗█████▙     ▐██▌
+            \W███       ███▖ ▗██▛  ███▘▜██▌    ▐██▌
+            \W███       ▝███████▘ ▐██▛ ▝███▖   ▐██▌
+            \W███        ▝▜███▛▘ ▗███▘  ▜██▙   ▐██▌
+
+                 \B      ▝▀▘      ▝▀▀▀▀▀▘ ▝▀▀▀▀▀▘
+                 \B      ▝▀▘      ▀▀   ▀▀ ▀▀   ▀▀
+                 \B▝▀▀▀▀▘▝▀▘▝▀▀▀▘ ▀▀   ▀▀ ▀▀
+                 \B▀▀  ▀▘▝▀▀▘ ▝▀▀ ▝▀▀▀▀▀▀ ▀▀▀▀▀▀▘
+                 \B▀▀    ▝▀▘   ▀▀      ▀▀ ▀▀   ▀▀
+                 \B▀▀  ▀▘▝▀▘   ▀▀ ▀▀   ▀▀ ▀▀   ▀▀
+                 \B▝▀▀▀▀▘▝▀▘   ▀▀ ▝▀▀▀▀▀▘ ▝▀▀▀▀▀▘
+
+               \GIBM PC/XT \W* \GTandy 1000 \W* \GIBM PCjr
+                CGA * Hercules * EGA * 8088/8086
+
+                          by \Gspark2k06
+                       Aitor Gomez Garcia
+                   https://www.aitorgomez.net
+                  https://ko-fi.com/spark2k06
+
+                           \BPOWERED BY
+
+                KFPC-XT * KFPC-PCjr * kitune-san
+                 https://github.com/kitune-san
+
+                       MCL86 * Ted Fried
+                 http://www.microcorelabs.com/
+
+       MCL86 SystemVerilog * Marcus Andrade (Boogermann)
+                https://github.com/opengateware
+
+    Graphics Gremlin (CGA/MDA) * Eric Schlaepfer (TubeTime)
+                      https://tubetime.us/
+
+                              \BALSO
+
+                    JTOPL * JT89 * JTCREDITS
+                      Jose Tejada (jotego)
+                 https://www.patreon.com/jotego
+
+        Sound Blaster * IDE * Floppy * RTC (ao486-based)
+        UM6845R CRTC * SAA1099 (C/MS) * MiSTer framework
+    Alexey Melnikov (sorgelig) * Aleksander Osman * Kitrinx
+               https://www.patreon.com/FPGAMiSTer
+
+                  SAA1099 based on the work of
+         Miguel Angel Rodriguez Jodar (mcleod-ideafix)
+                     Dave Hooper (stripwax)
+
+     MS Mouse PS2 to Serial * Antonio Sanchez (TheSonders)
+             2 Button Analog Joysticks * Flandango
+                  UART 16750 * Sebastian Witt
+
+______________________________________________________________
+
+                    \BDEVELOPERS \W& \GCO-WORKERS
+
+                 Aitor Gomez Garcia (spark2k06)
+                           kitune-san
+                   Ted Fried (MicroCoreLabs)
+                  Marcus Andrade (Boogermann)
+                     Neil Houghton (nizmow)
+                             somhi
+         David Gila Blazquez (Mills) * boot splash art
+                   https://github.com/mills32
+                 manfredi90 * COM2 serial fixes
+                           flynnsbit
+                    Jason Alexander (JasonA)
+                            Newsdee
+                            birdybro
+                     Pedro Gimeno (pgimeno)
+                        Jordi (jsmolina)
+
+______________________________________________________________
+
+                  \BTESTING \W& \GCOMMUNITY FEEDBACK
+
+            thorr * MiSTerTea * akeley * manfredi90
+
+______________________________________________________________
+
+                         \BSPECIAL THANKS
+
+              https://www.xtideuniversalbios.org/
+                   https://www.lo-tech.co.uk
+               https://github.com/640-KB/GLaBIOS
+             https://github.com/virtualxt/pcxtbios
+             https://github.com/skiselev/8088_bios
+         PCem (PCjr reference) * 86Box (EGA reference)
+        gloriouscow * 8088 SSTs and Area 5150 bus traces
+             Alejandro Valero Sebastian (Wilco2009)
+                        naeloob * gyurco
+
+______________________________________________________________
+
+              \BTHANKS FOR SUPPORTING THIS PROJECT!
+
+                        MiSTerFPGA.co.uk
+           Adr1048 * TonyEscobar * Kathleen * Caldor
+           Maxim Enbaev (emax73) * gitlab.com/emax73g
+                    Jordi (jsmolina) * thorr
+
+______________________________________________________________
+
+                        \RReport issues to
+       https://github.com/MiSTer-devel/PCXT_MiSTer/issues

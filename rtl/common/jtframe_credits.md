@@ -49,6 +49,8 @@ Features 1-bpp text font and 4-bpp objects. Enable it with macro **JTFRAME_CREDI
 **JTFRAME_CREDITS** is also added by the script *jtcore* if the generic
 `patrons/msg` file exists. In this repository the module is explicitly part of
 the PCXT project and the generated binary is kept in `rtl/common/msg.bin`.
+The Chameleon96 build (`MISTER_CHAMELEON96`) loads `rtl/common/msg_ch96.bin`
+instead, made the same way from `credits/msg_ch96` ("ch96" under the title).
 
 If the same core plays horizontal and vertical games, jtframe_credits will rotate the credits. The credits text file must be designed to fit both scenarios. If the vertical case is not as important, the credits can set to always show in horizontal using **JTFRAME_CREDITS_NOROTATE** or to not show for vertical games **JTFRAME_CREDITS_HIDEVERT**.
 

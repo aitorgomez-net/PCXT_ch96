@@ -94,7 +94,15 @@ wire              vram_nc;
 
 assign hscan = hn - hoffset;
 
-jtframe_dual_ram #(.dw(10), .aw(MSGW),.synfile("msg.bin"),.ascii_bin(1)) u_msg(
+// The Chameleon96 build shows "ch96" instead of "MiSTer" under the title
+// (credits/msg_ch96, converted with credits/msg2hex like credits/msg).
+`ifdef MISTER_CHAMELEON96
+localparam MSG_FILE = "msg_ch96.bin";
+`else
+localparam MSG_FILE = "msg.bin";
+`endif
+
+jtframe_dual_ram #(.dw(10), .aw(MSGW),.synfile(MSG_FILE),.ascii_bin(1)) u_msg(
     .clk0   ( clk       ),
     .clk1   ( clk       ),
     // Port 0: optional write access

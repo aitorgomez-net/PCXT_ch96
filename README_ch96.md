@@ -53,6 +53,8 @@ Output: `output_files/PCXT_ch96.rbf`. Release name: `releases/PCXT_AAAAMMDD_ch96
 | 350-line CRT conversion (DDR3 capture + 15 kHz raster) | yes | off, OSD entry hidden |
 | 2nd SD card | OSD option | hidden, forced off |
 | Scaler buffer (`RAMBASE`) | `0x20000000` | `0x1E800000` |
+| Splash logo / credits title | "MiSTer" (`splash_320x200.hex`, `msg.bin`) | "ch96" (`splash_320x200_ch96.hex`, `msg_ch96.bin`) |
+| Black before the splash picture | 1 s | 6 s (the HDMI display locks later), picture time as set in the OSD |
 
 With the 350-line conversion off, the `DDRAM_*` port is free for the core RAM.
 

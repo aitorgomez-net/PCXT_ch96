@@ -21,7 +21,7 @@
 module splash_fade #(
     parameter [6:0] IN_STEP     = 7'd2,
     parameter [6:0] OUT_STEP    = 7'd1,
-    parameter [6:0] HOLD_FRAMES = 7'd60     // one second at 60 Hz
+    parameter [8:0] HOLD_FRAMES = 9'd60     // one second at 60 Hz
 ) (
     input  wire       clock,
     input  wire       reset,
@@ -39,22 +39,22 @@ module splash_fade #(
     localparam [6:0] FULL = 7'd64;
 
     reg [6:0] level = 7'd0;
-    reg [6:0] held  = 7'd0;     // frames of black so far
+    reg [8:0] held  = 9'd0;     // frames of black so far
     reg       vsync_q = 1'b0;
 
     always @(posedge clock or posedge reset) begin
         if (reset) begin
             level   <= 7'd0;
-            held    <= 7'd0;
+            held    <= 9'd0;
             vsync_q <= 1'b0;
         end else begin
             vsync_q <= vsync;
             if (!active) begin
                 level <= 7'd0;
-                held  <= 7'd0;
+                held  <= 9'd0;
             end else if (vsync && !vsync_q) begin
                 if (held != HOLD_FRAMES)
-                    held <= held + 7'd1;
+                    held <= held + 9'd1;
                 else if (fade_out)
                     level <= (level > OUT_STEP) ? level - OUT_STEP : 7'd0;
                 else

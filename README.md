@@ -5,7 +5,7 @@ PCXT port for MiSTer by [@spark2k06](https://github.com/aitorgomez-net/).
 Discussion and development take place in the
 [MiSTerFPGA PCXT forum section](https://misterfpga.org/viewforum.php?f=40).
 
-![PCXT MiSTer boot splash](splash.jpg)
+![PCXT ch96 boot splash](splash.jpg)
 
 ## Description
 

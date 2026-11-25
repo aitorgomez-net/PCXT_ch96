@@ -1822,6 +1822,14 @@ module emu
     // second (splash_fade, in the video clock domain). The splash lasts one
     // second more: splash_fade keeps that first second black while the
     // scaler and the display lock to the core, then fades the picture in.
+    // On the Chameleon96 the display takes longer to lock (the HDMI chain
+    // starts with the core), so the black part lasts SPLASH_EXTRA_S seconds
+    // more there and the picture still shows for the time chosen in the OSD.
+`ifdef MISTER_CHAMELEON96
+    localparam [4:0] SPLASH_EXTRA_S = 5'd5;
+`else
+    localparam [4:0] SPLASH_EXTRA_S = 5'd0;
+`endif
     reg splash_off = 1'b1;
     reg [4:0] splash_seconds = 5'd6;
     reg [24:0] splash_cnt = 0;
@@ -1844,8 +1852,8 @@ module emu
     always @ (posedge clk_14_318)
     begin
         splash_off <= (status[104:103] == 2'd3);
-        splash_seconds <= (status[104:103] == 2'd2) ? 5'd16 :
-                          (status[104:103] == 2'd1) ? 5'd11 : 5'd6;
+        splash_seconds <= ((status[104:103] == 2'd2) ? 5'd16 :
+                           (status[104:103] == 2'd1) ? 5'd11 : 5'd6) + SPLASH_EXTRA_S;
         // Registered: it crosses into the video clock domain.
         splash_fade_out <= splash_timed && !splash_paused && !splash_off &&
                            (splash_cnt2 == splash_seconds - 5'd1);
@@ -3333,7 +3341,7 @@ module emu
 
     wire [7:0] main_r, main_g, main_b;
 
-    splash_fade splash_fade_main (
+    splash_fade #(.HOLD_FRAMES(9'd60 * (9'd1 + SPLASH_EXTRA_S))) splash_fade_main (
         .clock    (CLK_VIDEO_MAIN),
         .reset    (1'b0),
         .active   (splash_vid_sync2),

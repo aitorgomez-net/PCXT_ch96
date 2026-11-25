@@ -7,10 +7,16 @@ per line.  The same ROM feeds the CGA and the EGA renderer (rtl/video/
 splash_rom.v).  SW/splash_320x200_preview.png shows the result at 4:3, as a
 monitor shows a 320x200 picture.
 
+"python make_splash_rom.py ch96" builds the Chameleon96 variant instead, from
+SW/splash_320x200_ch96_source.png into rtl/video/splash_320x200_ch96.hex (the
+same picture with "ch96" in place of "MiSTer"; splash_rom.v loads it when
+MISTER_CHAMELEON96 is defined).
+
 The PowerShell version next to this file performs the same conversion on
 Windows without requiring Python or Pillow.
 """
 
+import sys
 from pathlib import Path
 
 from PIL import Image
@@ -19,9 +25,10 @@ from PIL import Image
 WIDTH = 320
 HEIGHT = 200
 ROOT = Path(__file__).resolve().parents[1]
-SOURCE = ROOT / "SW" / "splash_320x200_source.png"
-PREVIEW = ROOT / "SW" / "splash_320x200_preview.png"
-ROM = ROOT / "rtl" / "video" / "splash_320x200.hex"
+VARIANT = "_" + sys.argv[1] if len(sys.argv) > 1 else ""
+SOURCE = ROOT / "SW" / f"splash_320x200{VARIANT}_source.png"
+PREVIEW = ROOT / "SW" / f"splash_320x200{VARIANT}_preview.png"
+ROM = ROOT / "rtl" / "video" / f"splash_320x200{VARIANT}.hex"
 
 # 8-bit equivalents of the RGBI colours, in RGBI index order.
 PALETTE = (
