@@ -1,0 +1,132 @@
+--- /tmp/claude-0/video_stock.cpp	2026-11-25 17:07:11.620305761 +0000
++++ video.cpp	2026-11-26 05:40:37.340282011 +0000
+@@ -1695,44 +1695,31 @@
+ 
+ static void tda_config_set_mode(vmode_custom_t *vm)
+ {
+-	// SYNC_DE passthrough (board-validated, mode720_full.sh de): the TDA's TBG
+-	// regenerates the output HS/VS from a timing reference, so per-mode timing
+-	// registers (REFPIX/NPIX/NLINE, HS/VS positions, VWIN) must be programmed
+-	// from vm or the regenerated sync is phase-offset from the passed-through
+-	// DE (picture shifted left, left edge cut off). DE_START/STOP are skipped
+-	// because DE is passed through. Values match u-boot tda19988_enable /
+-	// Linux tda998x_set_video_mode and the on-board validated de variant.
++	// SYNC_HS mode, as the Linux tda998x driver (tda998x_bridge_mode_set) and
++	// u-boot drive the TDA19988: the timing generator (TBG) locks to the
++	// rising HS/VS edges and regenerates DE from DE_START/STOP and VWIN, so
++	// the DE input pin is not used. The SYNC_DE passthrough this port used
++	// before stops working when the FPGA->TDA DE line is faulty (seen on a
++	// board that suddenly showed no picture), while SYNC_HS keeps working.
++	// It relies on VS edges that coincide with the HS leading edge, which is
++	// what ascal outputs.
+ 	uint32_t htotal = vm->param.hact + vm->param.hfp + vm->param.hs + vm->param.hbp;
+ 	uint32_t vtotal = vm->param.vact + vm->param.vfp + vm->param.vs + vm->param.vbp;
+ 
+-	// VIDFORMAT (P0 0xA0) declares the CEA-861 video format the transmitter
+-	// should expect (NXP TDA9983B/TDA19988 Table 34); it is NOT a bus-format
+-	// selector. VIC -> value per that table, 0x00 for everything else
+-	// (custom/non-CEA canvases), exactly how the reference drivers use it.
+-	uint8_t vidformat = 0x00;
+-	switch (vm->param.vic)
+-	{
+-	case 2:
+-	case 3:  vidformat = 0x01; break;
+-	case 4:  vidformat = 0x02; break; // 1280x720p60 - board-validated look
+-	case 5:  vidformat = 0x03; break;
+-	case 6:
+-	case 7:  vidformat = 0x04; break;
+-	case 8:
+-	case 9:  vidformat = 0x05; break;
+-	case 16: vidformat = 0x06; break; // 1920x1080p60
+-	case 17:
+-	case 18: vidformat = 0x07; break;
+-	case 19: vidformat = 0x08; break; // 1280x720p50
+-	case 20: vidformat = 0x09; break;
+-	case 21:
+-	case 22: vidformat = 0x0a; break;
+-	case 23:
+-	case 24: vidformat = 0x0b; break;
+-	case 31: vidformat = 0x1f; break; // 1920x1080p50 ("others")
+-	default: vidformat = 0x00; break; // VIC 1 (640x480p60) / custom, non-CEA canvases
+-	}
+-	tda_write(0x00, 0xa0, vidformat);
++	// The FPGA always drives active-high HS/VS on the TDA bus (ascal pulses;
++	// hpol/vpol only reach the VGA scaler output), so the input stage is never
++	// toggled. The mode's polarity is applied at the TBG output instead, the
++	// same way stock MiSTer has the ADV7513 invert its output (sync_invert
++	// when hpol/vpol is 0, which is the case for every predefined mode).
++	uint8_t vip_cntrl_3 = 0x20;                   // SYNC_HS, no input toggle
++	uint8_t tbg_cntrl_1 = 0x04;                   // TGL_EN
++	if (!vm->param.hpol) tbg_cntrl_1 |= 0x01;     // H_TGL: negative HS out
++	if (!vm->param.vpol) tbg_cntrl_1 |= 0x02;     // V_TGL: negative VS out
++	tda_write(0x00, 0x23, vip_cntrl_3);           // VIP_CNTRL_3
++
++	// VIDFORMAT 0x00 with the full timing below, exactly like the reference
++	// drivers in SYNC_HS mode (validated on the board at 800x600@72).
++	tda_write(0x00, 0xa0, 0x00);                  // VIDFORMAT
+ 
+ 	// Serializer PLL follows the actual TMDS rate: Linux tda998x selection
+ 	// (break when 80000>>div kHz <= tmds_clock) - div=1 at the validated
+@@ -1777,6 +1764,8 @@
+ 	tda_write16(0x00, 0xbf, vtotal - 1);          // VWIN_END_1
+ 	tda_write16(0x00, 0xc1, 0);                   // VWIN_START_2
+ 	tda_write16(0x00, 0xc3, 0);                   // VWIN_END_2
++	tda_write16(0x00, 0xc5, htotal - vm->param.hact); // DE_START
++	tda_write16(0x00, 0xc7, htotal);              // DE_STOP
+ 
+ 	tda_write(0x00, 0xd6, 0x00);                  // ENABLE_SPACE: fill active
+ 	tda_write(0x00, 0xf0, 0x00);                  // RPT_CNTRL: no pixel repeat
+@@ -1793,7 +1782,7 @@
+ 	// DWIN_DIS (bit 6) is NOT set: it disables the data-island window, which
+ 	// would block the ACR and audio InfoFrame packets. Data islands require
+ 	// the HDMI encoder path, forced below like Linux/u-boot.
+-	tda_write(0x00, 0xcb, 0x07);                  // TBG_CNTRL_1: TGL_EN|H_TGL|V_TGL
++	tda_write(0x00, 0xcb, tbg_cntrl_1);           // TBG_CNTRL_1: TGL_EN | sync polarity
+ 	tda_write(0x00, 0xca, 0x00);                  // TBG_CNTRL_0
+ 	tda_write(0x11, 0x0d, 0x04);                  // ENC_CNTRL: CTL_CODE(1) -> HDMI
+ 	tda_set_bit(0x12, 0xb8, 0x02);                // TX33: TX33_HDMI
+@@ -1803,19 +1792,40 @@
+ 	// for RGB full-range video. Aspect is fixed 16:9, same as stock MiSTer's
+ 	// ADV7513 config (hdmi_config_set_mode writes aspect bit 1 = 16:9 always).
+ 	// Write sequence mirrors tda998x_write_if(): clear flag, fill buffer, set.
++	//
++	// Modes without a CEA VIC (VIC 0: custom modelines, 1024x768, 1280x1024)
++	// must not claim a 16:9 picture aspect: some sinks drop the signal when
++	// VIC 0 comes with a forced aspect. For VIC 0 the frame follows the
++	// kernel for non-CEA modes (picture aspect "no data", active format
++	// same as picture), or no AVI is sent at all when TDA_VIC0_NO_AVI is set.
+ 	{
++		const uint8_t vic = (uint8_t)vm->param.vic;
++		uint8_t db1 = 0x00, db2 = 0x20;           // CEA mode: RGB, 16:9 (as before)
++		if (!vic)
++		{
++			db1 = 0x10;                           // A0: active format info present
++			db2 = 0x08;                           // M = no data, R = same as picture
++		}
+ 		uint8_t avi[17] = {
+ 			0x82, 0x02, 0x0d, 0x00,               // HB: AVI, ver 2, len 13, checksum
+-			0x00, 0x20, 0x08, (uint8_t)vm->param.vic, // DB1..DB4: RGB full-range
++			db1, db2, 0x08, vic,                  // DB1..DB4: RGB full-range
+ 			0x00, 0x00, 0x00, 0x00,               // DB5..DB13
+ 			0x00, 0x00, 0x00, 0x00,
+ 			0x00
+ 		};
+ 		avi[3] = (uint8_t)(0x100 - (0x82 + 0x02 + 0x0d + avi[4] + avi[5] + avi[6] + avi[7]));
+ 		tda_clear_bit(0x11, 0x0f, 0x04);          // DIP_IF_FLAGS: IF2 off
+-		for (uint i = 0; i < 17; i++)
+-			tda_write(0x10, 0x40 + i, avi[i]);  // IF2 buffer (P10 0x40; IF4/AIF is at 0x80)
+-		tda_set_bit(0x11, 0x0f, 0x04);            // DIP_IF_FLAGS: transmit IF2
++		bool send_avi = true;
++#ifdef TDA_VIC0_NO_AVI
++		if (!vic) send_avi = false;
++#endif
++		if (send_avi)
++		{
++			for (uint i = 0; i < 17; i++)
++				tda_write(0x10, 0x40 + i, avi[i]); // IF2 buffer (P10 0x40; IF4/AIF is at 0x80)
++			tda_set_bit(0x11, 0x0f, 0x04);        // DIP_IF_FLAGS: transmit IF2
++		}
++		printf("TDA19988: AVI VIC=%u DB1=%02X DB2=%02X %s\n", vic, db1, db2, send_avi ? "sent" : "not sent");
+ 	}
+ }
+ 
