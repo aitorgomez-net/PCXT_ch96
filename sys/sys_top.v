@@ -1384,12 +1384,11 @@ end
 
 wire hdmi_tx_clk;
 `ifndef MISTER_DEBUG_NOHDMI
-	cyclonev_clkselect hdmi_clk_sw
-	( 
-		.clkselect({1'b1, ~vga_fb & direct_video}),
-		.inclk({clk_vid, hdmi_clk_out, 2'b00}),
-		.outclk(hdmi_tx_clk)
-	);
+	// This board's fPLL site X0_Y1 is dead. The hdmi_clk_sw CLKSEL makes the
+	// fitter place its source PLLs in X0_Y1, so it is removed: the HDMI TX
+	// clock comes straight from pll_hdmi (X89_Y1, reconfigured by Main_MiSTer
+	// for every HDMI mode). No direct_video over HDMI.
+	assign hdmi_tx_clk = hdmi_clk_out;
 `else
 	assign hdmi_tx_clk = clk_vid;
 `endif
