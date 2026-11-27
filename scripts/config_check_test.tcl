@@ -60,28 +60,28 @@ foreach f [lsort [glob -directory $profile_dir *.tcl]] {
     foreach w $warnings { puts "      warning: $w" }
 }
 
-lassign [evaluate_profile mister_pcxt_full]          full   _
-lassign [evaluate_profile mister_pcxt_cga] cga _
+lassign [evaluate_profile ch96_pcxt_full]          full   _
+lassign [evaluate_profile ch96_pcxt_cga] cga _
 if {[dict get $cga ENABLE_EGA] != 0 || [dict exists $cga LAYOUT_EGA]} {
-    fail "mister_pcxt_cga must be the CGA layout without an EGA card"
+    fail "ch96_pcxt_cga must be the CGA layout without an EGA card"
 }
 
-lassign [evaluate_profile mister_tandy1000] tandy1000 _
+lassign [evaluate_profile ch96_tandy1000] tandy1000 _
 if {[dict get $tandy1000 SYSTEM_VARIANT_TANDY] != 1 || [dict get $tandy1000 ENABLE_TANDY_VIDEO] != 1
     || [dict get $tandy1000 ENABLE_HGC] != 0 || [dict get $tandy1000 ENABLE_EGA] != 0
     || [dict exists $tandy1000 LAYOUT_EGA]} {
-    fail "mister_tandy1000 must be a Tandy machine with the CGA family only and the CGA layout"
+    fail "ch96_tandy1000 must be a Tandy machine with the CGA family only and the CGA layout"
 }
 
-lassign [evaluate_profile mister_pcjr] pcjr_prof _
+lassign [evaluate_profile ch96_pcjr] pcjr_prof _
 if {[dict get $pcjr_prof SYSTEM_VARIANT_PCJR] != 1 || [dict get $pcjr_prof ENABLE_PCJR] != 1
     || [dict get $pcjr_prof ENABLE_TANDY_VIDEO] != 1 || [dict get $pcjr_prof ENABLE_HGC] != 0
     || [dict get $pcjr_prof ENABLE_EGA] != 0 || [dict exists $pcjr_prof LAYOUT_EGA]
     || [dict exists $pcjr_prof SYSTEM_VARIANT_TANDY]} {
-    fail "mister_pcjr must be a PCjr machine with the CGA family only and the CGA layout"
+    fail "ch96_pcjr must be a PCjr machine with the CGA family only and the CGA layout"
 }
 
-foreach p {mister_pcxt_full} {
+foreach p {ch96_pcxt_full} {
     lassign [evaluate_profile $p] pm _
     if {[dict get $pm ENABLE_MODEL_TANDY] != 1 || [dict get $pm ENABLE_TANDY_VIDEO] != 1
         || [dict get $pm ENABLE_TANDY_KBD] != 1} {
@@ -91,7 +91,7 @@ foreach p {mister_pcxt_full} {
         fail "$p must offer the PCjr as the third machine"
     }
 }
-foreach p {mister_pcxt_cga mister_pcxt_ega mister_tandy1000} {
+foreach p {ch96_pcxt_cga ch96_pcxt_ega ch96_tandy1000} {
     lassign [evaluate_profile $p] pm _
     if {[dict exists $pm ENABLE_MODEL_TANDY] && [dict get $pm ENABLE_MODEL_TANDY] != 0} {
         fail "$p has a fixed machine and must not choose it in the OSD"

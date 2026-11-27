@@ -4,7 +4,7 @@
 # and print a table of ALM, M10K and the worst slack of the four timing corners.
 #
 #   scripts/build_profiles.sh                 every profile in profiles/
-#   scripts/build_profiles.sh mister_pcjr ... only the ones named
+#   scripts/build_profiles.sh ch96_pcjr ... only the ones named
 #
 # Each profile is compiled in its own copy of the tree under $WORK (default
 # ~/pcxt_build), up to $JOBS at a time (default 3), and keeps its output there:

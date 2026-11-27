@@ -1,7 +1,7 @@
 //
 // DDR3 backend for the Chameleon96 (no SDRAM on that board).
 //
-// Drop-in replacement for platform/mister/sdram_ctrl.sv: it takes the same
+// Drop-in replacement for platform/sdram/sdram_ctrl.sv: it takes the same
 // operations from sdram_arbiter (op_* holding register) and returns read words
 // the same way (rd_*, in issue order, one 16-bit word per clock), but executes
 // them on the HPS DDR3 through the f2sdram Avalon port (DDRAM_*).

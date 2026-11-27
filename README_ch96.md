@@ -1,9 +1,9 @@
 # PCXT for Chameleon96
 
 Port of the PCXT core (IBM PC/XT, Tandy 1000, IBM PCjr) to the Arrow/Novtech
-Chameleon96 board (Cyclone V SE 5CSEBA6U19I7, same die as the DE10-Nano), for
-the MiSTer port to that board by Manuel Teira (teiram) and the distribution by
-Shaeon (Distribution_MiSTer_ch96).
+Chameleon96 board (Cyclone V SE 5CSEBA6U19I7, same die as the DE10-Nano), on
+the framework port to that board by Manuel Teira (teiram) and the distribution by
+Shaeon.
 
 **Status: first test build.** The core RAM, ROMs and video memory live in the
 HPS DDR3 (`platform/ch96/ddram_ctrl.sv`). Not yet checked on the board.
@@ -12,13 +12,13 @@ HPS DDR3 (`platform/ch96/ddram_ctrl.sv`). Not yet checked on the board.
 
 Same as the PCAT-286 port (Maverick-Shark/pcat-286_mister, branch `ch96`):
 
-- `sys/` is PCXT_MiSTer's own framework. Every board difference is behind the
+- `sys/` is the core's own framework. Every board difference is behind the
   `MISTER_CHAMELEON96` macro, and the DE10-Nano view of each edited file is unchanged,
   so `PCXT.qpf` still builds the DE10-Nano core from this tree.
 - `sys_top` stays the top-level entity (teiram's template wraps it in `ch96_top`
   instead). `SYSTEM.sdc` and `sys/sys_top.sdc` name instances relative to `sys_top`,
   so they keep applying; both detect `MISTER_CHAMELEON96` and skip the constraints
-  of pins the board does not have (SDRAM, SDIO, analog I/O, MCP23009, switches).
+  of pins the board does not have (SDIO, analog I/O, MCP23009, switches).
 - The HPS-fed 50 MHz clock keeps the `FPGA_CLK2_50` name.
 - HDMI PLL powers up at 74.25 MHz (720p60), as in the template; Main_MiSTer
   reprograms it for the selected mode.
@@ -33,13 +33,13 @@ Same as the PCAT-286 port (Maverick-Shark/pcat-286_mister, branch `ch96`):
 
 ## Build
 
-Quartus 17.0.2 Lite (same as MiSTer), e.g. with Docker in WSL:
+Quartus 17.0.2 Lite, e.g. with Docker in WSL:
 
     docker run --rm -v "$PWD":/build -w /build raetro/quartus:17.0 \
         quartus_sh --flow compile PCXT_ch96
 
 `PCXT_ch96.qpf` is the Chameleon96 build, `PCXT.qpf` the DE10-Nano one.
-Profile: `PCXT_PROFILE=<profiles/name>` (default `mister_pcxt_full`).
+Profile: `PCXT_PROFILE=<profiles/name>` (default `ch96_pcxt_full`).
 Output: `output_files/PCXT_ch96.rbf`. Release name: `releases/PCXT_AAAAMMDD_ch96.rbf`.
 
 ## What changes on this board (MISTER_CHAMELEON96)
@@ -48,12 +48,12 @@ Output: `output_files/PCXT_ch96.rbf`. Release name: `releases/PCXT_AAAAMMDD_ch96
 |---|---|---|
 | 50 MHz clocks | three oscillator pins | HPS `h2f_user1_clk` |
 | Video | ADV7513, RGB888 | TDA19988, RGB565 |
-| SDRAM, VGA, analog audio, SDIO, ADC, user port, I/O board | pins | internal nets, tied off |
+| VGA, analog audio, SDIO, ADC, user port, I/O board | pins | internal nets, tied off |
 | ALSA audio from Linux | yes | no |
 | 350-line CRT conversion (DDR3 capture + 15 kHz raster) | yes | off, OSD entry hidden |
 | 2nd SD card | OSD option | hidden, forced off |
 | Scaler buffer (`RAMBASE`) | `0x20000000` | `0x1E800000` |
-| Splash logo / credits title | "MiSTer" (`splash_320x200.hex`, `msg.bin`) | "ch96" (`splash_320x200_ch96.hex`, `msg_ch96.bin`) |
+| Splash logo / credits title | original logo (`splash_320x200.hex`, `msg.bin`) | "ch96" (`splash_320x200_ch96.hex`, `msg_ch96.bin`) |
 | Black before the splash picture | 1 s | 6 s (the HDMI display locks later), picture time as set in the OSD |
 
 With the 350-line conversion off, the `DDRAM_*` port is free for the core RAM.
@@ -61,7 +61,7 @@ With the 350-line conversion off, the `DDRAM_*` port is free for the core RAM.
 ### Video fetch lead
 
 The DDR3 is shared with the scaler and Linux, and a read sometimes takes longer than the
-one character of lead the video fetch had with the SDRAM: in text modes a late word shows
+one character of lead the video fetch had: in text modes a late word shows
 up as a stray glyph (dots, dashes, bullets). On this board the cards ask for their words
 further ahead (`sdram_pkg`, under `MISTER_CHAMELEON96`):
 
@@ -71,7 +71,7 @@ further ahead (`sdram_pkg`, under `MISTER_CHAMELEON96`):
 | HGC/MDA | 5 characters behind in text, 3 in graphics | 6 characters in text (1.9 us), 4 in graphics (2.2 us) |
 | EGA | `SDRAM_LEAD_DOTS` 56, cell 29 + glyph 30 dots | 1.8 us per text read, 3.4 us in graphics |
 
-Up to 8 video reads may be in flight at once (4 with the SDRAM), and the DDR3 controller
+Up to 8 video reads may be in flight at once and the DDR3 controller
 keeps 16.
 
 The picture only moves as a whole (syncs and blanking are delayed with it). The

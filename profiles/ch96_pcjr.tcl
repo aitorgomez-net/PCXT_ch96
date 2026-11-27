@@ -1,4 +1,4 @@
-# Profile mister_pcjr: an IBM PCjr. The CGA with the PCjr video
+# Profile ch96_pcjr: an IBM PCjr. The CGA with the PCjr video
 # gate array (16 colour palette, 320x200x16, 640x200x4, 640x200x2 modes, video
 # memory shared with the system RAM), the PCjr BIOS in ROM slot 4, the infrared
 # keyboard through the NMI, IRQ5 on vertical retrace, the SN76489 of the Tandy
@@ -6,7 +6,7 @@
 # Sourced by config.tcl; see scripts/config_check.tcl for the valid combinations.
 
 # Machine: a PCjr. CORE_NAME follows SYSTEM_VARIANT_PCJR ("PCjr"), so the OSD,
-# the configuration file and the folder in MiSTer are its own.
+# the configuration file and the folder on the SD card are its own.
 set_global_assignment -name VERILOG_MACRO "SYSTEM_VARIANT_PCJR=1"
 set_global_assignment -name VERILOG_MACRO "ROM_VARIANT_PCJR=1"
 set_global_assignment -name VERILOG_MACRO "ENABLE_PCJR=1"
@@ -33,7 +33,7 @@ set_global_assignment -name VERILOG_MACRO "ENABLE_SB=0"
 set_global_assignment -name VERILOG_MACRO "ENABLE_MIDI=0"
 
 # Clock networks: keep the 114.5 MHz SDRAM controller clock on a global line (see
-# config.tcl and mister_tandy1000).
+# config.tcl and ch96_tandy1000).
 set pcxt_global_sdram_clock 1
 
 # Fitter seed: the one that closes timing in the four corners with this profile

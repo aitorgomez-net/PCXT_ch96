@@ -1,18 +1,16 @@
-# [IBM PC/XT](https://en.wikipedia.org/wiki/IBM_Personal_Computer_XT) for [MiSTer FPGA](https://mister-devel.github.io/MkDocs_MiSTer/)
+# [IBM PC/XT](https://en.wikipedia.org/wiki/IBM_Personal_Computer_XT) for the Chameleon96
 
-PCXT port for MiSTer by [@spark2k06](https://github.com/aitorgomez-net/).
-
-Discussion and development take place in the
-[MiSTerFPGA PCXT forum section](https://misterfpga.org/viewforum.php?f=40).
+PCXT for the Arrow/Novtech Chameleon96 board by [@spark2k06](https://github.com/aitorgomez-net/).
+The port notes are in [`README_ch96.md`](README_ch96.md).
 
 ![PCXT ch96 boot splash](splash.jpg)
 
 ## Description
 
-This core recreates an IBM PC/XT-compatible machine as RTL running on MiSTer.
+This core recreates an IBM PC/XT-compatible machine as RTL running on the Chameleon96.
 The design is built around the [MCL86 CPU](https://github.com/MicroCoreLabs/Projects/tree/master/MCL86),
-the [KFPC-XT chipset](https://github.com/kitune-san/KFPC-XT), and the MiSTer
-framework. The aim is a practical, observable PC/XT: real bus transactions,
+the [KFPC-XT chipset](https://github.com/kitune-san/KFPC-XT), and the
+Chameleon96 framework. The aim is a practical, observable PC/XT: real bus transactions,
 chipset timing, memory windows, video I/O and peripherals are represented in
 the FPGA rather than emulated by a host operating system.
 
@@ -24,30 +22,30 @@ cartridges).
 The PC/XT has two video choices: CGA and HGC/MDA together, or an IBM EGA card.
 CGA provides the native 200-line colour/composite raster; HGC/MDA provides the
 monochrome text and graphics raster. Both can be present at the same time, and
-the OSD or F11 can select which connector path is shown. HGC/MDA's 350-line
-timing can optionally be converted to a 15 kHz television raster without
-changing the video hardware seen by DOS software. The EGA card is a strict IBM
+the OSD or F11 can select which connector path is shown. The EGA card is a strict IBM
 EGA (modes 0–7, 0Dh, 0Eh, 0Fh and 10h, 64-colour palette, 5151/5153/5154
 monitors); it has no VGA modes.
 
 AdLib sound uses [JTOPL](https://github.com/jotego/jtopl) by Jose Tejada
 ([@jotego](https://github.com/jotego)). The project also integrates C/MS,
-the OPL2-compatible FM path, optional Tandy audio, PC speaker and MIDI/MT32-pi
+the OPL2-compatible FM path, optional Tandy audio, PC speaker and MIDI
 support.
 
 For the implementation notes behind the CPU and bus work, see
 [`docs/8086-adaptation.md`](docs/8086-adaptation.md).
 
-A detailed [technical report](https://aitorgomez-net.github.io/PCXT_MiSTer/report/) (architecture of the
-PC/XT, Tandy 1000 and PCjr in one core, their video, 15 kHz output, memory
-map, OSD and startup; source in [docs/report](docs/report/CORE_REPORT.html)) complements this
-README, and the [BIOS Builder](https://aitorgomez-net.github.io/PCXT_MiSTer/BIOS_Builder) prepares the
+A detailed [technical report](https://aitorgomez-net.github.io/PCXT_ch96/report/) (architecture of the
+PC/XT, Tandy 1000 and PCjr in one core, their video, memory
+map, OSD and startup) complements this
+README, and the [BIOS Builder](https://aitorgomez-net.github.io/PCXT_ch96/BIOS_Builder/) prepares the
 firmware the core needs. Both are published at
-[aitorgomez-net.github.io/PCXT_MiSTer](https://aitorgomez-net.github.io/PCXT_MiSTer/).
+[aitorgomez-net.github.io/PCXT_ch96/](https://aitorgomez-net.github.io/PCXT_ch96/); their sources are
+[`docs/report/CORE_REPORT.html`](docs/report/CORE_REPORT.html) and
+[`SW/ROMs/BIOS_Builder.html`](SW/ROMs/BIOS_Builder.html).
 
 ## Key features
 
-* IBM PC/XT, Tandy 1000 or IBM PCjr in one core, chosen in the OSD (**Machine**); one or more of them can be kept as separate entries of the menu with [MGL profiles](#profiles-mgl)
+* IBM PC/XT, Tandy 1000 or IBM PCjr in one core, chosen in the OSD (**Machine**);
 * Selectable 8088 or 8086 bus mode, applied safely with **Reset & apply settings**
 * CPU speeds of 4.77 MHz, 7.16 MHz, 9.54 MHz and **Max**; Max is an unthrottled performance profile, not a historical CPU grade
 * Optional **Fake 286 FLAGS** compatibility behaviour for software that probes reserved FLAGS bits
@@ -58,12 +56,11 @@ firmware the core needs. Both are published at
 * CGA and HGC/MDA available together, with OSD selection and **F11** video-output swap
 * IBM EGA card as the alternative PC/XT video (**PCXT Video**), with the 5151, 5153 and 5154 monitors
 * Tandy 1000 video modes and sound; PCjr video gate array, IR keyboard, two cartridge slots, 128–640 KiB of RAM and tape sound
-* 350-line HGC/MDA and EGA modes converted to **480i 15 kHz** or **240p 15 kHz**; CGA bypasses this converter
 * A single 320×200, 16-colour graphical boot splash for the whole XT family, also used while HGC/MDA is selected
 * **F12** pause and credits on the splash as well as after the machine starts
 * Startup hold with an on-screen notice while the BIOS of the chosen machine, or the EGA BIOS, is missing
-* XTIDE option-ROM support and two SD-backed storage targets
-* AdLib OPL2, C/MS, Sound Blaster Pro, Tandy audio, PC speaker and MIDI/MT32-pi
+* XTIDE option-ROM support and SD-backed storage
+* AdLib OPL2, C/MS, Sound Blaster Pro, Tandy audio, PC speaker and MIDI
 * Joystick support and serial mouse support on COM1
 
 ## Video architecture
@@ -111,20 +108,7 @@ The HGC path implements the B0000h/B8000h video apertures, monochrome text,
 Hercules graphics and the corresponding CRTC/sequencer timing. It is available
 alongside CGA when both build macros are enabled. **PCXT 1st Video** selects
 which card the BIOS should treat as the first display; **F11** swaps the
-MiSTer output between the two live video paths.
-
-HGC/MDA's native 350-line raster is not a 15 kHz progressive television mode.
-When **350-line CRT** is set to `480i 15 kHz` or `240p 15 kHz`, the core captures
-a complete HGC/MDA frame in DDRAM and reads it back on a television-compatible
-raster. `480i` displays all source lines across two fields; `240p` is steady
-and progressive but reduces the active vertical detail. `Native` leaves the
-card's original raster untouched. CGA never enters this framebuffer path.
-
-The conversion is deliberately outside the emulated card: the CRTC registers,
-display-enable timing, retrace bits and software-visible memory remain HGC/MDA
-timing in every setting. `CRT H offset` and `CRT V offset` centre the converted
-television raster; `Native` is intended for a display or scaler that accepts
-the original 350-line output.
+video output between the two live video paths.
 
 ### EGA
 
@@ -132,8 +116,7 @@ The EGA card is an IBM EGA: modes 0–7, 0Dh, 0Eh, 0Fh and 10h, the 64-colour
 attribute palette, pel panning, line compare and the 5151, 5153 and 5154
 monitors (**Monitor**, Hardware page). It is chosen with **PCXT Video** and
 needs an IBM EGA BIOS in its own slot. Its 256 KiB of video memory are kept in
-SDRAM. The 350-line modes go through the same **350-line CRT** converter as
-HGC/MDA. The card itself lives in [`vendor/pc_common/`](vendor/pc_common/README.md).
+the core RAM. The card itself lives in [`vendor/pc_common/`](vendor/pc_common/README.md).
 
 ### Splash and credits
 
@@ -160,8 +143,8 @@ the enabled build features, the selected video card and the OSD settings.
 
 | Address range | Core assignment |
 | --- | --- |
-| `00000h–9FFFFh` | 640 KiB conventional SDRAM |
-| `A0000h–AFFFFh` | Optional SDRAM-backed A000 UMB, with the CGA/HGC card |
+| `00000h–9FFFFh` | 640 KiB conventional RAM |
+| `A0000h–AFFFFh` | Optional A000 UMB, with the CGA/HGC card |
 | `B0000h–B7FFFh` | HGC/MDA video aperture when the Hercules page is selected |
 | `B8000h–BFFFFh` | CGA colour/text aperture, or HGC/MDA page 1 |
 | `A0000h–BFFFFh` | EGA video memory, as its Miscellaneous register maps it, when the EGA card is selected |
@@ -170,23 +153,23 @@ the enabled build features, the selected video card and the OSD settings.
 | `F0000h–FFFFFh` | System BIOS of the chosen machine (PCXT, Tandy or PCjr BIOS slot) |
 
 The video apertures are not conventional memory. In the builds that include
-the EGA card (`mister_pcxt_full`, the default, and `mister_pcxt_ega`) the EMS
+the EGA card (`ch96_pcxt_full`, the default, and `ch96_pcxt_ega`) the EMS
 frame is fixed at D000h and the OSD offers an extra UMB at C400h–CFFFFh; the
 A000 UMB is only offered while the CGA/HGC card is selected. The EMS frame can
-be moved to C000h or E000h only in the `mister_pcxt_cga` build. On the Tandy
+be moved to C000h or E000h only in the `ch96_pcxt_cga` build. On the Tandy
 1000 and the PCjr the video memory is part of system RAM, as on the real
 machines. EMS maps four 16 KiB banks through its page frame and is controlled
 at I/O ports `260h–263h`.
 Because EMS and option ROMs can occupy the same upper-memory ranges, DOS
 configuration must match the selected EMS frame. The supplied
 [`hdd/CONFIG.SYS`](hdd/CONFIG.SYS) is written for a C000h frame
-(`mister_pcxt_cga`); with the default build adapt the `/p:` frame of LTEMM and
+(`ch96_pcxt_cga`); with the default build adapt the `/p:` frame of LTEMM and
 the USE!UMBS range to D000h.
 
 ## OSD configuration
 
 The default `config.tcl` build, the one published in `releases/`, is the
-`mister_pcxt_full` profile: the IBM PCXT, the Tandy 1000 and the IBM PCjr as
+`ch96_pcxt_full` profile: the IBM PCXT, the Tandy 1000 and the IBM PCjr as
 machines, CGA, HGC and EGA as video cards, OPL2, C/MS, the Sound Blaster Pro,
 EMS, the A000 UMB and MIDI. The machine and the video card are chosen in the OSD
 and applied at the next reset. Smaller builds with only part of this can be
@@ -196,12 +179,11 @@ The main OSD groups are:
 
 | Group | Options of interest |
 | --- | --- |
-| Disks | Floppy A/B, write protection, IDE images and second SD card |
+| Disks | Floppy A/B, write protection, IDE images |
 | CPU | 4.77 MHz, 7.16 MHz, 9.54 MHz, Max |
 | System & BIOS | Machine, PCXT Video (CGA/HGC or EGA), CGA/HGC enable, first video, splash time, CPU type, Fake 286 FLAGS, the BIOS of each machine (PCXT, Tandy, PCjr), EGA BIOS, EC00 ROM, PCjr cartridges and RAM, BIOS write protection |
-| Audio & Video | Audio 220h (C/MS or Sound Blaster), OPL2, Tandy sound, tape sound (PCjr), speaker and audio boost, mixing, CRT offsets, sync widths, scaler effect, aspect ratio, border, CRTC frame stacking, composite, display tint and `350-line CRT` (Native, 480i 15 kHz or 240p 15 kHz) |
-| Hardware | EGA monitor, EMS, UMBs, joysticks, joystick swap, CPU-speed synchronisation, Sound Blaster IRQ, MPU-401 and USER I/O (MIDI or COM2) |
-| MT32-pi | MT32-pi use, mode, ROM, SoundFont and hanging-notes reset, shown when an MT32-pi is detected |
+| Audio & Video | Audio 220h (C/MS or Sound Blaster), OPL2, Tandy sound, tape sound (PCjr), speaker and audio boost, mixing, sync widths, scaler effect, aspect ratio, border, CRTC frame stacking, composite and display tint |
+| Hardware | EGA monitor, EMS, UMBs, joysticks, joystick swap, CPU-speed synchronisation, Sound Blaster IRQ, MPU-401 |
 
 Options that do not apply to the chosen machine or card are hidden: the
 Tandy 1000 and the PCjr have no HGC or EGA, and the PCjr has no expansion
@@ -212,47 +194,9 @@ first-video state are latched during reset: after changing them, use
 **Reset & apply settings** (the OSD shows that the change is pending until
 then). Fake 286 FLAGS is a live compatibility control.
 
-## Profiles (MGL)
-
-A MiSTer MGL file can launch the core under a name of its own. Each name gets
-its own configuration file (`config/<name>.CFG`), so the same RBF can appear
-in the menu as several machines, each one with its own settings, BIOS and
-disks, much like the configuration slots of other cores. With
-`same_dir="1"` every profile keeps using the `games/PCXT` folder.
-
-1. Create one `.mgl` file per profile in `_Computer`, next to the PCXT RBF.
-   The file name is the name shown in the menu. For example, `PCXT-PCjr.mgl`:
-
-   ```xml
-   <mistergamedescription>
-       <rbf>_Computer/PCXT</rbf>
-       <setname same_dir="1">PCXT-PCjr</setname>
-   </mistergamedescription>
-   ```
-
-   `PCXT-Tandy.mgl` and `PCXT-EGA.mgl` are the same file with `PCXT-Tandy` or
-   `PCXT-EGA` as the `setname`. The `rbf` path matches the release RBF by its
-   name, whatever its date. Avoid the name of another core, such as
-   `Tandy1000`: the profile would read that core's saved configuration, whose
-   options are laid out differently.
-2. Launch the profile from the menu. The first time, it starts from the
-   default settings: open the OSD, choose the **Machine** (and, for a PC/XT,
-   the **PCXT Video** card), load the BIOS of that machine under
-   **System & BIOS**, mount its disks and save the settings.
-3. Select **Reset & apply settings**. From then on the profile starts as that
-   machine.
-
-The plain PCXT entry keeps using `config/PCXT.CFG`. Without `same_dir="1"` a
-profile looks for its files in `games/<setname>` instead. The `setname` also
-names the configuration, so renaming it later starts a fresh one.
-
-These profiles are a feature of MiSTer's Main, not of the core, and need no
-build of their own. The build profiles described in [Building](#building) are
-something else: separate RBFs with only part of the hardware.
-
 ## Quick start
 
-1. Copy the contents of `games/PCXT` to the MiSTer SD card and extract the
+1. Copy the contents of `games/PCXT` to the Chameleon96 SD card and extract the
    included `hd_image.zip` if present.
 2. Select **Computers / PCXT**.
 3. Open the OSD with **Win + F12**.
@@ -262,7 +206,7 @@ something else: separate RBFs with only part of the hardware.
 5. Mount a floppy or hard-disk image.
 6. Load the BIOS of that machine into its slot under **System & BIOS** (PCXT,
    Tandy or PCjr BIOS; the EGA card also needs an EGA BIOS). The
-   [BIOS Builder](https://aitorgomez-net.github.io/PCXT_MiSTer/BIOS_Builder) prepares them (see
+   [BIOS Builder](https://aitorgomez-net.github.io/PCXT_ch96/BIOS_Builder/) prepares them (see
    [ROM instructions](#rom-instructions)).
 7. Select **Reset & apply settings**.
 
@@ -296,9 +240,8 @@ which BASICA needs and several games in Tandy mode do not like.
 
 ### BIOS Builder
 
-The [BIOS Builder](https://aitorgomez-net.github.io/PCXT_MiSTer/BIOS_Builder) (source:
-[`SW/ROMs/BIOS_Builder.html`](SW/ROMs/BIOS_Builder.html), which also runs
-offline from a local copy) prepares every image above in the browser, with
+The [BIOS Builder](https://aitorgomez-net.github.io/PCXT_ch96/BIOS_Builder/) (source: [`SW/ROMs/BIOS_Builder.html`](SW/ROMs/BIOS_Builder.html)), which runs
+offline from a local copy, prepares every image above in the browser, with
 nothing to install, and your files are never uploaded.
 
 * **PC/XT:** the Micro8088 and Turbo XT BIOS images, built from the open
@@ -329,19 +272,19 @@ commonly uses 720 KiB or 1.44 MiB media.
 * **OPL2 / AdLib:** at the AdLib address `388h`, also at the Sound Blaster FM address `228h` (**SB FM**), or disabled.
 * **C/MS and Sound Blaster Pro:** both live at `220h` and collide on `226h/227h`, so **Audio 220h** picks one of them (or neither). The Sound Blaster uses IRQ 5 or 7.
 * **Tandy audio:** SN76489-compatible audio at the classic Tandy I/O range. It is part of the Tandy 1000 and the PCjr, and can also be enabled on the PC/XT.
-* **MIDI / MT32-pi:** MPU-401 UART at `330h–331h`, with MiSTer USER I/O and HPS USB MIDI options when enabled.
+* **MIDI:** MPU-401 UART at `330h–331h`, with the HPS USB MIDI option when enabled.
 * **Mouse:** a serial mouse can be used on COM1 with a DOS driver such as CTMOUSE.
 * **Joysticks:** two configurable analog or digital joystick inputs.
-* **Storage:** floppy A/B, IDE-backed hard-disk images and an optional second SD target.
+* **Storage:** floppy A/B, IDE-backed hard-disk images.
 
 ## Building
 
 The standard Quartus project is `PCXT.qsf`. The build profile is picked with
 the `PCXT_PROFILE` environment variable (`config.tcl` sources
-`profiles/<profile>.tcl`); the profiles are `mister_pcxt_full` (PCXT, Tandy 1000
-and PCjr, chosen in the OSD), `mister_pcxt_ega`, `mister_pcxt_cga`,
-`mister_tandy1000` and `mister_pcjr`. Each profile sets its own fitter seed.
-Only `mister_pcxt_full`, the default, is published in `releases/`; the other
+`profiles/<profile>.tcl`); the profiles are `ch96_pcxt_full` (PCXT, Tandy 1000
+and PCjr, chosen in the OSD), `ch96_pcxt_ega`, `ch96_pcxt_cga`,
+`ch96_tandy1000` and `ch96_pcjr`. Each profile sets its own fitter seed.
+Only `ch96_pcxt_full`, the default, is published in `releases/`; the other
 profiles are there to build a core with a single machine or video family, for
 instance to free FPGA resources or to keep the OSD of the earlier PCXT and
 PCXT-EGA cores.
@@ -351,7 +294,7 @@ strict EGA: the VGA 13h+ extension no longer exists. From WSL, the
 containerised build of one profile is:
 
 ```sh
-docker run --rm -e PCXT_PROFILE=mister_pcxt_full -v "$(pwd):/build" -w /build \
+docker run --rm -e PCXT_PROFILE=ch96_pcxt_full -v "$(pwd):/build" -w /build \
   raetro/quartus:17.0 quartus_sh --flow compile PCXT
 ```
 
@@ -363,14 +306,14 @@ startup hold.
 
 ## Repository layout
 
-* `PCXT.sv`, `config.tcl`, `PCXT.qsf` — MiSTer top level, feature profile and Quartus project
-* `profiles/` — build profiles (`mister_pcxt_full` and the smaller ones)
+* `PCXT.sv`, `config.tcl`, `PCXT.qsf` — top level, feature profile and Quartus project
+* `profiles/` — build profiles (`ch96_pcxt_full` and the smaller ones)
 * `rtl/8088/` — MCL86 CPU (BIU, EU, microcode) with the 8088/8086 selection
-* `rtl/video/` — CGA (with the Tandy and PCjr video), HGC/MDA, composite, scandoubler and splash
-* `rtl/mem/` — SDRAM arbiter, memory map and the video fetch engines; the SDRAM controller is in `platform/mister/`
-* `vendor/pc_common/` — the EGA card, its SDRAM front end and the 350-line 15 kHz framebuffer, pinned
+* `rtl/video/` — CGA (with the Tandy and PCjr video), HGC/MDA, composite and splash
+* `rtl/mem/` — memory arbiter, memory map and the video fetch engines; the DDR3 controller is in `platform/ch96/`
+* `vendor/pc_common/` — the EGA card, its memory front end, pinned
 * `rtl/KFPC-XT/` — chipset, CPU-facing bus, memory, peripherals and testbenches
-* `rtl/common/` — MiSTer/common support, credits and shared memory blocks
+* `rtl/common/` — common support, credits and shared memory blocks
 * `rtl/sound/` — JTOPL (OPL2), jt89 (SN76489), SAA1099 (C/MS) and the Sound Blaster Pro
 * `SW/ROMs/` — open BIOS and XTIDE images and the BIOS Builder
 * `SW/8088_bios/` — Micro8088 BIOS sources and build instructions
@@ -389,9 +332,9 @@ media geometry.
 
 ## Credits and licence
 
-MiSTer integration and continuing development by **Aitor Gómez García
+Chameleon96 port, integration and continuing development by **Aitor Gómez García
 (spark2k06)**, with contributions from the MCL86, KFPC-XT, KFPC-PCjr, JTFrame,
-JTOPL, Graphics Gremlin, ao486, MS mouse, sound and MiSTer communities,
+JTOPL, Graphics Gremlin, ao486, MS mouse and sound communities,
 including **BoogerMann** among the project developers and collaborators, the
 boot splash art by **Mills** and the COM2 fixes by **manfredi90**. See
 [`credits/msg`](credits/msg) for the in-core credits list (F12 shows it).

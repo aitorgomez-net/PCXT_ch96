@@ -1,4 +1,4 @@
-# Profile mister_pcxt_full: one PCXT core with both video families, CGA+Hercules
+# Profile ch96_pcxt_full: one PCXT core with both video families, CGA+Hercules
 # and EGA. The card is chosen in the OSD and applied at the next reset.
 # Sourced by config.tcl; see scripts/config_check.tcl for the valid combinations.
 

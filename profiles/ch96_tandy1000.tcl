@@ -1,11 +1,11 @@
-# Profile mister_tandy1000: a Tandy 1000 (CGA plus the Tandy video modes, Tandy
+# Profile ch96_tandy1000: a Tandy 1000 (CGA plus the Tandy video modes, Tandy
 # BIOS, Tandy keyboard and SN76489 sound). Reproduces the Tandy1000 core that
 # preceded the unified tree, with its video memory shared with the system RAM
 # instead of a copy of it in BRAM.
 # Sourced by config.tcl; see scripts/config_check.tcl for the valid combinations.
 
 # Machine: a Tandy 1000. CORE_NAME follows SYSTEM_VARIANT_TANDY ("Tandy1000"),
-# so the OSD, the configuration file and the folder in MiSTer are its own.
+# so the OSD, the configuration file and the folder on the SD card are its own.
 set_global_assignment -name VERILOG_MACRO "SYSTEM_VARIANT_TANDY=1"
 set_global_assignment -name VERILOG_MACRO "ROM_VARIANT_TANDY=1"
 set_global_assignment -name VERILOG_MACRO "ENABLE_TANDY_VIDEO=1"

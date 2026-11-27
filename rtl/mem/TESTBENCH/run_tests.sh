@@ -24,7 +24,7 @@ ROOT=$(cd ../../.. && pwd)
 mkdir -p "$BUILD_DIR"
 
 PKG="$MEM/sdram_pkg.sv"
-CTRL="$ROOT/platform/mister/sdram_ctrl.sv"
+CTRL="$ROOT/platform/sdram/sdram_ctrl.sv"
 ARB="$MEM/sdram_arbiter.sv"
 BRIDGE="$MEM/sdram_xbridge.sv"
 PORT="$MEM/cpu_mem_port.sv"

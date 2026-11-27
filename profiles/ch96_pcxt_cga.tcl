@@ -1,9 +1,9 @@
-# Profile mister_pcxt_cga: PCXT with CGA and Hercules/MDA. Reproduces the
+# Profile ch96_pcxt_cga: PCXT with CGA and Hercules/MDA. Reproduces the
 # PCXT core that preceded the unified tree (CGA layout of the OSD).
 # Sourced by config.tcl; see scripts/config_check.tcl for the valid combinations.
 
 # Machine: a plain PCXT. The Tandy switches stay at 0 (the Tandy 1000 has its
-# own profile, mister_tandy1000).
+# own profile, ch96_tandy1000).
 set_global_assignment -name VERILOG_MACRO "SYSTEM_VARIANT_TANDY=0"
 set_global_assignment -name VERILOG_MACRO "ROM_VARIANT_TANDY=0"
 set_global_assignment -name VERILOG_MACRO "ENABLE_TANDY_VIDEO=0"

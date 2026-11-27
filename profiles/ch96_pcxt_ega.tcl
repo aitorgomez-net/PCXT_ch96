@@ -1,4 +1,4 @@
-# Profile mister_pcxt_ega: PCXT with the EGA card, and a Sound
+# Profile ch96_pcxt_ega: PCXT with the EGA card, and a Sound
 # Blaster Pro. Reproduces the PCXT-EGA core (EGA layout of the OSD).
 # Sourced by config.tcl; see scripts/config_check.tcl for the valid combinations.
 

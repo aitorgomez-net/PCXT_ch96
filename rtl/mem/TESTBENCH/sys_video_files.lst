@@ -88,7 +88,7 @@ rtl/mem/rom_loader.sv
 rtl/mem/vram_fetch.sv
 rtl/mem/vid_mux.sv
 rtl/mem/ram_clear.sv
-platform/mister/sdram_ctrl.sv
+platform/sdram/sdram_ctrl.sv
 rtl/KFPC-XT/HDL/KFPS2KB/HDL/KFPS2KB_Shift_Register.sv
 rtl/KFPC-XT/HDL/KFPS2KB/HDL/KFPS2KB_Send_Data.sv
 rtl/KFPC-XT/HDL/KFPS2KB/HDL/KFPS2KB.sv

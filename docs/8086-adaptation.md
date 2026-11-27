@@ -217,7 +217,7 @@ The memory layout is **not** in this list any more; see §1 and step 0.
 
 ### 3.2 Hardware validation outcome
 
-The step 5/6 RBF has now booted and run successfully on MiSTer in both CPU modes
+The step 5/6 RBF has now booted and run successfully on the board in both CPU modes
 at 4.77, 7.16, 9.54 MHz and Max. This includes the corrected late read
 sample at 9.54 MHz. RAM, video and I/O remain functional, and reset correctly
 applies the selected CPU type.
@@ -417,7 +417,7 @@ earlier CPU edge.
 The permanent fix keeps the 9.54 MHz cycle profile and zero extra RAM wait
 cycles, but sets `shift_read_timing` so the BIU samples read data on the later
 edge, as Max already does. A diagnostic RBF with only that behavioural
-change passed on MiSTer in both 8088 and 8086 modes at 9.54 MHz, as well as at
+change passed on the board in both 8088 and 8086 modes at 9.54 MHz, as well as at
 all remaining speeds. In particular, 8086 + 9.54 MHz now cold-boots and runs
 normally. The fix also passed `biu_ram_prefetch_tb` and the full
 `cpu_8086_speed_tb`.
@@ -432,7 +432,7 @@ was built with those violations and step 7 is no longer blocked by this fault.
 ### Step 7: validate 8086 timing at the fixed speeds
 
 **Entry condition: satisfied.** The exact step 5/6 build completed synthesis
-and has booted and run in both CPU modes at every speed on MiSTer. The 9.54 MHz
+and has booted and run in both CPU modes at every speed on the board. The 9.54 MHz
 read-sampling correction was also verified in both modes. This freezes a
 known-good wide-bus baseline before extending the timing regression.
 

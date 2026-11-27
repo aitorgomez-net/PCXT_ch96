@@ -13,7 +13,7 @@ set_global_assignment -name QIP_FILE rtl/sound/jt89/hdl/jt89.qip
 set_global_assignment -name QIP_FILE rtl/sound/jtopl/hdl/jtopl2.qip
 set_global_assignment -name QIP_FILE rtl/8088/index.qip
 set_global_assignment -name QIP_FILE rtl/mem/mem.qip
-set_global_assignment -name SYSTEMVERILOG_FILE "platform/mister/sdram_ctrl.sv"
+set_global_assignment -name SYSTEMVERILOG_FILE "platform/sdram/sdram_ctrl.sv"
 set_global_assignment -name SYSTEMVERILOG_FILE "platform/ch96/ddram_ctrl.sv"
 set_global_assignment -name SYSTEMVERILOG_FILE "rtl/KFPC-XT/HDL/KFPS2KB/HDL/KFPS2KB_Shift_Register.sv"
 set_global_assignment -name SYSTEMVERILOG_FILE "rtl/KFPC-XT/HDL/KFPS2KB/HDL/KFPS2KB_Send_Data.sv"

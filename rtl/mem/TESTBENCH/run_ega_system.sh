@@ -20,7 +20,7 @@ ROOT=$(cd "$TB/../../.." && pwd)
 LIB=$ROOT/vendor/pc_common
 
 SRC=("$MEM/sdram_pkg.sv" "$MEM/sdram_arbiter.sv" "$MEM/sdram_xbridge.sv" "$MEM/sdram_txn_mux.sv"
-     "$MEM/vram_fetch.sv" "$MEM/vid_mux.sv" "$ROOT/platform/mister/sdram_ctrl.sv"
+     "$MEM/vram_fetch.sv" "$MEM/vid_mux.sv" "$ROOT/platform/sdram/sdram_ctrl.sv"
      "$TB/sdram_model.sv" "$TB/ega_real_stack.sv"
      "$LIB/rtl/ega/ega_vram_fns_pkg.sv")
 for f in "$LIB"/rtl/ega/*.v "$LIB"/rtl/mem/*.sv; do
